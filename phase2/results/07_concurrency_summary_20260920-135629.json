@@ -1,0 +1,47 @@
+{
+  "experiment": "concurrency",
+  "model": "Qwen/Qwen3-0.6B",
+  "prompt": "请用100字左右说明连续批处理为什么能提高大模型服务吞吐量。",
+  "requests_per_level": 8,
+  "summaries": [
+    {
+      "concurrency": 2,
+      "total_requests": 8,
+      "successful_requests": 8,
+      "failed_requests": 0,
+      "batch_seconds": 1.6291584172286093,
+      "total_completion_tokens": 280,
+      "aggregate_tokens_per_second": 171.86787794173696,
+      "ttft_p50_seconds": 0.037652875296771526,
+      "ttft_p95_seconds": 0.045436699688434605,
+      "total_p50_seconds": 0.40621683304198086,
+      "total_p95_seconds": 0.41613348287064583
+    },
+    {
+      "concurrency": 4,
+      "total_requests": 8,
+      "successful_requests": 8,
+      "failed_requests": 0,
+      "batch_seconds": 0.824897666927427,
+      "total_completion_tokens": 280,
+      "aggregate_tokens_per_second": 339.4360430705811,
+      "ttft_p50_seconds": 0.036574520636349916,
+      "ttft_p95_seconds": 0.04350609590765089,
+      "total_p50_seconds": 0.4072683120612055,
+      "total_p95_seconds": 0.4173691480187699
+    },
+    {
+      "concurrency": 8,
+      "total_requests": 8,
+      "successful_requests": 8,
+      "failed_requests": 0,
+      "batch_seconds": 0.4087162921205163,
+      "total_completion_tokens": 238,
+      "aggregate_tokens_per_second": 582.3110176626432,
+      "ttft_p50_seconds": 0.04114135401323438,
+      "ttft_p95_seconds": 0.041860252246260644,
+      "total_p50_seconds": 0.35321512492373586,
+      "total_p95_seconds": 0.3888035566546023
+    }
+  ]
+}

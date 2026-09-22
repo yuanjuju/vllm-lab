@@ -1,0 +1,11 @@
+setting	trial	temperature	top_p	total_seconds	prompt_tokens	completion_tokens	output_tokens_per_second	finish_reason	content
+greedy	1	0	1.0	1.110514	34	5	4.50	stop	夜海如墨
+greedy	2	0	1.0	0.335425	34	5	14.91	stop	夜海如墨
+greedy	3	0	1.0	0.082199	34	5	60.83	stop	夜海如墨
+greedy	4	0	1.0	0.076313	34	5	65.52	stop	夜海如墨
+greedy	5	0	1.0	0.081220	34	5	61.56	stop	夜海如墨
+sampling	1	1.0	1.0	0.247273	34	9	36.40	stop	海浪如潮汐轻舞。
+sampling	2	1.0	1.0	0.133892	34	5	37.34	stop	夜色如海
+sampling	3	1.0	1.0	0.300845	34	15	49.86	stop	月光洒在海面上，如银色的绸缎。
+sampling	4	1.0	1.0	0.343557	34	15	43.66	stop	月亮洒下银辉，海面泛着温柔的光。
+sampling	5	1.0	1.0	0.165402	34	7	42.32	stop	夜海似墨涛。
