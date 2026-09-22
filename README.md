@@ -1,6 +1,13 @@
-# vLLM 学习实验室
+# vLLM 推理服务实验室
 
-从 Apple Silicon 本地推理，逐步学习 vLLM 的生成参数、性能指标、云端服务、调度与 KV Cache。实验数字是特定模型、硬件、配置和时间下的记录，不是通用跑分。
+基于 Apple Silicon Metal 与单卡 NVIDIA CUDA 环境，围绕 vLLM 的推理服务、可观测性和调度行为开展可复核的实验。项目保存运行脚本、原始结果与分析笔记，将 API 层看到的延迟和吞吐量，关联到引擎层的队列、KV Cache 与前缀缓存指标。
+
+## 工程与实验重点
+
+- **跨平台部署与隔离**：在 Mac M5 上使用 vLLM-Metal 服务 Qwen3-0.6B，在云端 RTX 4090 48GB 上使用 vLLM 0.29.0 服务 Qwen3-8B；通过相同的 OpenAI 兼容 API 验证模型加载和生成，并让本地环境、缓存与结果留在项目目录内。
+- **从请求到引擎的观测**：记录流式 TTFT、响应时间、输出速度与成功率，同时读取 `/metrics` 中的 Running、Waiting、KV Cache 使用率和 Prefix Cache 命中计数，理解 Prefill、Decode、连续批处理与缓存复用对服务行为的影响。
+- **单变量配置对照**：在 6 个并发请求、每个请求固定生成 384 tokens 的一次实验中，将 `max-num-seqs` 从 4 调整为 8。最大 Waiting 从 2 降至 0，总耗时从 13.672 s 降至 8.185 s；但先完成请求的单请求延迟反而上升，体现排队、延迟与吞吐量之间的取舍。详见[配置对照及原始数据](phase3/results/scheduler_capacity_comparison.md)。
+- **证据边界**：上述对照只在特定模型、硬件和负载下各运行一次，并非通用跑分或生产容量规划依据；仓库不声称实现了 vLLM 内核优化。
 
 ## 内容
 
