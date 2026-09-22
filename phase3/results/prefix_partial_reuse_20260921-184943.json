@@ -1,0 +1,45 @@
+{
+  "run_id": "20260921-184943-1789987783559553000",
+  "model": "Qwen/Qwen3-8B",
+  "base_url": "http://127.0.0.1:18000",
+  "paragraph_repetitions": 24,
+  "note": "Elapsed time includes Mac client, SSH tunnel, and cloud server; single-run latency is not a speedup benchmark.",
+  "records": [
+    {
+      "case": "A_cold",
+      "same_shared_prefix_as_A": false,
+      "queries_delta": 1812,
+      "hits_delta": 0,
+      "hit_ratio": 0.0,
+      "seconds": 1.1678,
+      "prompt_tokens": 1812,
+      "completion_tokens": 32,
+      "finish_reason": "length",
+      "answer": "KV缓存用于存储大语言模型在推理过程中计算得到的键（Key）和值（Value）向量，以便在后续请求中复"
+    },
+    {
+      "case": "B_shared_prefix",
+      "same_shared_prefix_as_A": true,
+      "queries_delta": 1813,
+      "hits_delta": 1792,
+      "hit_ratio": 0.9884,
+      "seconds": 0.6741,
+      "prompt_tokens": 1813,
+      "completion_tokens": 32,
+      "finish_reason": "length",
+      "answer": "前缀缓存的作用是通过复用已计算好的注意力键值对，提高大语言模型推理效率，减少重复计算，加快响应速度。"
+    },
+    {
+      "case": "C_changed_prefix",
+      "same_shared_prefix_as_A": false,
+      "queries_delta": 1816,
+      "hits_delta": 0,
+      "hit_ratio": 0.0,
+      "seconds": 0.7488,
+      "prompt_tokens": 1816,
+      "completion_tokens": 29,
+      "finish_reason": "stop",
+      "answer": "前缀缓存的作用是通过复用已计算好的前缀部分，提高大语言模型推理服务的效率和响应速度。"
+    }
+  ]
+}

@@ -1,0 +1,267 @@
+{
+  "run_id": "20260921-193949-1789990789434227000",
+  "url": "http://127.0.0.1:18000",
+  "request_count": 6,
+  "tokens_per_request": 384,
+  "initial_metrics": {
+    "running": 0.0,
+    "waiting": 0.0,
+    "capacity_waiting": 0.0,
+    "kv": 0.0
+  },
+  "success_count": 6,
+  "max_running": 6.0,
+  "max_waiting": 0.0,
+  "max_capacity_waiting": 0.0,
+  "max_kv_cache_usage": 0.01907420330309373,
+  "duration_s": 8.185,
+  "results": [
+    {
+      "request_id": "20260921-193949-1789990789434227000-0",
+      "ok": true,
+      "seconds": 8.061,
+      "completion_tokens": 384,
+      "finish_reason": "length"
+    },
+    {
+      "request_id": "20260921-193949-1789990789434227000-1",
+      "ok": true,
+      "seconds": 8.06,
+      "completion_tokens": 384,
+      "finish_reason": "length"
+    },
+    {
+      "request_id": "20260921-193949-1789990789434227000-2",
+      "ok": true,
+      "seconds": 8.038,
+      "completion_tokens": 384,
+      "finish_reason": "length"
+    },
+    {
+      "request_id": "20260921-193949-1789990789434227000-3",
+      "ok": true,
+      "seconds": 8.06,
+      "completion_tokens": 384,
+      "finish_reason": "length"
+    },
+    {
+      "request_id": "20260921-193949-1789990789434227000-4",
+      "ok": true,
+      "seconds": 8.06,
+      "completion_tokens": 384,
+      "finish_reason": "length"
+    },
+    {
+      "request_id": "20260921-193949-1789990789434227000-5",
+      "ok": true,
+      "seconds": 8.062,
+      "completion_tokens": 384,
+      "finish_reason": "length"
+    }
+  ],
+  "samples": [
+    {
+      "at_s": 0.166,
+      "running": 0.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.0
+    },
+    {
+      "at_s": 0.723,
+      "running": 0.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.0
+    },
+    {
+      "at_s": 0.993,
+      "running": 0.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.0
+    },
+    {
+      "at_s": 1.264,
+      "running": 0.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.0
+    },
+    {
+      "at_s": 1.536,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.0030239590602465505
+    },
+    {
+      "at_s": 1.804,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.0037217957664573698
+    },
+    {
+      "at_s": 2.103,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.004419632472668078
+    },
+    {
+      "at_s": 2.399,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.005117469178878786
+    },
+    {
+      "at_s": 2.671,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.0058153058850896056
+    },
+    {
+      "at_s": 2.948,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.006513142591300314
+    },
+    {
+      "at_s": 3.216,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.007210979297511022
+    },
+    {
+      "at_s": 3.482,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.007908816003721841
+    },
+    {
+      "at_s": 3.754,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.00860665270993255
+    },
+    {
+      "at_s": 4.028,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.009304489416143258
+    },
+    {
+      "at_s": 4.296,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.010002326122354077
+    },
+    {
+      "at_s": 4.595,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.010700162828564785
+    },
+    {
+      "at_s": 4.888,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.011397999534775494
+    },
+    {
+      "at_s": 5.155,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.012095836240986313
+    },
+    {
+      "at_s": 5.434,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.012793672947197021
+    },
+    {
+      "at_s": 5.705,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.01349150965340773
+    },
+    {
+      "at_s": 5.976,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.014189346359618549
+    },
+    {
+      "at_s": 6.268,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.014887183065829257
+    },
+    {
+      "at_s": 6.54,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.015585019772039965
+    },
+    {
+      "at_s": 6.81,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.016282856478250785
+    },
+    {
+      "at_s": 7.08,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.016980693184461493
+    },
+    {
+      "at_s": 7.349,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.0176785298906722
+    },
+    {
+      "at_s": 7.619,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.01837636659688302
+    },
+    {
+      "at_s": 7.887,
+      "running": 6.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.01907420330309373
+    },
+    {
+      "at_s": 8.09,
+      "running": 0.0,
+      "waiting": 0.0,
+      "capacity_waiting": 0.0,
+      "kv": 0.0
+    }
+  ]
+}
