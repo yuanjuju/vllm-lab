@@ -1,36 +1,15 @@
-# vLLM 第二阶段归档
+# Mac Metal：先建立测量基线
 
-第二阶段已于 2026-09-20 完成。实验脚本在数据收集完成后已从项目目录移除，模型、虚拟环境、原始结果和性能基线均保留。
+云端服务之前，我先用 Mac M5 和 Qwen3-0.6B 把请求、流式计时与指标采集跑通。小模型的好处是能快速重复请求；它的速度不代表 Qwen3-8B，也不能用来推断 4090 的硬件优势。
 
-## 完成内容
+## 这部分回答了什么
 
-- `temperature` 对随机性的影响
-- `top_p` 对候选范围的影响
-- `max_tokens` 与 `finish_reason`
-- Qwen3 思考模式开关
-- 普通输出与流式输出
-- TTFT、总响应时间和输出 tokens/s
-- 20 次连续请求稳定性
-- 2、4、8 并发请求
-- `Running` 与 `Waiting` 指标采样
+| 问题 | 观察 | 数据 |
+| --- | --- | --- |
+| 生成参数改变了什么？ | 对比 `temperature`、`top_p`、`max_tokens` 和 Qwen3 思考模式；16/64 token 上限的请求以 `length` 结束，256 token 上限的同一任务自然停止。 | [temperature](results/01_temperature_20260920-131622.tsv) · [top_p](results/02_top_p_20260920-132326.tsv) · [max_tokens](results/03_max_tokens_20260920-132332.tsv) · [思考模式](results/04_thinking_mode_20260920-132344.tsv) |
+| 流式请求有多快？ | 单次请求记录了首个内容块、总时间和 `[DONE]`；补采的 20 次请求全部成功，TTFT P50 为 0.0301 s。 | [连续请求逐条数据](results/06_sequential_stability_20260920-132447.csv)、[机器汇总](results/06_sequential_stability_summary_20260920-132447.json) |
+| 增加并发会怎样？ | 2、4、8 并发档位各发送 8 个短请求；本次最高 Running 为 8，Waiting 为 0。负载太轻，没有制造出排队。 | [并发汇总](results/07_concurrency_summary_20260920-135629.json) |
 
-## 数据来源
+`temperature`、`top_p`、思考模式、流式请求和连续请求由我在终端操作；2/4/8 并发与引擎指标由助手补采。临时采集脚本按当时的要求在收尾后移除，因此这一阶段保留了原始响应与汇总，**没有保留完整的重跑入口**。仓库根目录的 `env.sh`、`run_server.sh` 和 `test_api.sh` 仍可启动并检查本地服务。
 
-- 用户亲自完成：生成参数、思考模式、流式输出、单次性能和 20 次连续请求。
-- 助手收尾采集：缺失的 2、4、8 并发测试，以及 `/metrics` 中的 `Running`、`Waiting`。
-
-## 保留内容
-
-- `results/mac_baseline.md`：最终验收结论和 Mac 性能基线。
-- `results/*.jsonl`：非流式实验的原始 API 响应。
-- `results/*.tsv`：生成参数实验的表格结果。
-- `results/*.csv`：流式、连续请求和并发测试的逐请求数据。
-- `results/*_summary_*.json`：性能实验的机器可读汇总。
-
-## 脚本清理
-
-第二阶段的临时 `.sh`、`.py` 实验脚本及 `__pycache__` 已从项目目录移除，不随仓库发布；原始结果和汇总数据保留在 `results/`。项目根目录中的 `env.sh`、`run_server.sh`、`test_api.sh` 和 `storage_report.sh` 未改动、未移除，仍可用于后续阶段。
-
-## 最终入口
-
-请以 `results/mac_baseline.md` 为第二阶段的最终记录。并发数据只代表当前 `Qwen/Qwen3-0.6B`、短提示词、2048 上下文和 Metal 配置，不应直接外推到更大的云端 GPU 模型。
+完整环境、手动终端记录及补采数据的区别见 [Mac 性能基线](results/mac_baseline.md)。连续请求复用了相同提示词，预热与缓存收益可能同时存在，不能仅凭低 TTFT 就断言某个缓存机制起了作用。

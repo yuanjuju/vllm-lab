@@ -2,10 +2,9 @@
 
 环境：Qwen3-8B、单卡 RTX 4090 48GB、vLLM 0.29.0。除 `max-num-seqs` 外，服务配置相同。Mac 经 SSH 隧道访问云端 API。每组一次测试：同时提交 6 个请求，每个请求生成 384 tokens。
 
-运行命令：
+在仓库根目录运行（服务端需分别以两种 `max-num-seqs` 配置启动）：
 
 ```bash
-cd "/Users/jinian/Documents/llm learning/vllm-lab"
 python3 phase3/scheduler_capacity.py --requests 6 --tokens 384
 ```
 
@@ -27,5 +26,5 @@ python3 phase3/scheduler_capacity.py --requests 6 --tokens 384
 
 原始数据：
 
-- `scheduler_capacity_20260921-192356.json`：上限 4，运行 ID `20260921-192356-1789989836896097000`
-- `scheduler_capacity_20260921-193949.json`：上限 8，运行 ID `20260921-193949-1789990789434227000`
+- [上限 4](scheduler_capacity_20260921-192356.json)：运行 ID `20260921-192356-1789989836896097000`
+- [上限 8](scheduler_capacity_20260921-193949.json)：运行 ID `20260921-193949-1789990789434227000`

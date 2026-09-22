@@ -1,45 +1,61 @@
-# vLLM 推理服务实验室
+# vLLM 推理服务与性能分析
 
-基于 Apple Silicon Metal 与单卡 NVIDIA CUDA 环境，围绕 vLLM 的推理服务、可观测性和调度行为开展可复核的实验。项目保存运行脚本、原始结果与分析笔记，将 API 层看到的延迟和吞吐量，关联到引擎层的队列、KV Cache 与前缀缓存指标。
+模型能回答「15 + 27 = 42」，只说明接口通了；同时接到 6 个请求时怎样排队，是另一个问题。我先在 Mac M5 上跑通 Metal 后端和 API，再把 Qwen3-8B 部署到单卡 RTX 4090 48GB，沿着请求链路观察延迟、排队和 KV Cache。这里保存客户端脚本、监控采样和原始结果；手动终端记录与后续补采的数据分别标注，不混作同一次运行。
 
-## 工程与实验重点
+## 最值得看的结果
 
-- **跨平台部署与隔离**：在 Mac M5 上使用 vLLM-Metal 服务 Qwen3-0.6B，在云端 RTX 4090 48GB 上使用 vLLM 0.29.0 服务 Qwen3-8B；通过相同的 OpenAI 兼容 API 验证模型加载和生成，并让本地环境、缓存与结果留在项目目录内。
-- **从请求到引擎的观测**：记录流式 TTFT、响应时间、输出速度与成功率，同时读取 `/metrics` 中的 Running、Waiting、KV Cache 使用率和 Prefix Cache 命中计数，理解 Prefill、Decode、连续批处理与缓存复用对服务行为的影响。
-- **单变量配置对照**：在 6 个并发请求、每个请求固定生成 384 tokens 的一次实验中，将 `max-num-seqs` 从 4 调整为 8。最大 Waiting 从 2 降至 0，总耗时从 13.672 s 降至 8.185 s；但先完成请求的单请求延迟反而上升，体现排队、延迟与吞吐量之间的取舍。详见[配置对照及原始数据](phase3/results/scheduler_capacity_comparison.md)。
-- **证据边界**：上述对照只在特定模型、硬件和负载下各运行一次，并非通用跑分或生产容量规划依据；仓库不声称实现了 vLLM 内核优化。
+在云端 Qwen3-8B / vLLM 0.29.0 服务上，同时发送 6 个请求，每个请求固定生成 384 tokens。只调整 `max-num-seqs`，观察到：
 
-## 内容
+| 配置 | Running 峰值 | Waiting 峰值 | 整批耗时 | 聚合输出吞吐量 |
+| --- | ---: | ---: | ---: | ---: |
+| `max-num-seqs=4` | 4 | 2 | 13.672 s | 168.52 tokens/s |
+| `max-num-seqs=8` | 6 | 0 | 8.185 s | 281.49 tokens/s |
 
-| 阶段 | 环境与重点 | 入口 |
-| --- | --- | --- |
-| 第一阶段 | Mac M5、vLLM-Metal、Qwen3-0.6B；启动与 OpenAI 兼容 API | 下方本地启动步骤 |
-| 第二阶段 | 生成参数、流式输出、TTFT、连续请求与并发基线 | [第二阶段说明](phase2/README.md)、[Mac 基线](phase2/results/mac_baseline.md) |
-| 第三阶段 | RTX 4090 上的 Qwen3-8B；云端 API、KV、前缀缓存与调度实验 | [第三阶段说明](phase3/README.md)、[学习笔记](phase3/learning_notes/README.md) |
+这不是“把参数调大，GPU 就算得更快”。这组负载下，改动让两个等待中的请求提前进入调度，整批任务更早结束；与此同时，原本先完成的 4 个请求各自稍慢。**吞吐量、排队时间和单请求延迟需要一起看。**实验只在这台机器上各运行一次，不能据此确定最佳生产配置。[完整条件、逐请求数据和局限](phase3/results/scheduler_capacity_comparison.md)
 
-vLLM 用于**推理和服务**，不负责训练。后续如进行 LoRA 微调，训练与 vLLM 部署会分别记录。
+## 项目做了什么
 
-## Mac 本地服务
+- **服务部署**：Mac M5 使用 vLLM-Metal 运行 Qwen3-0.6B；云端使用 CUDA/BF16 运行 Qwen3-8B。两端都通过 OpenAI 兼容 API 验证模型加载和聊天生成。云端 API 只监听回环地址，Mac 经 SSH 隧道访问，没有把 8000 端口直接暴露到公网。
+- **测量与观测**：客户端记录流式 TTFT、总耗时、输出速度和成功率。`scheduler_capacity.py` 用 Barrier 同步发起请求、线程池并发提交，并轮询 vLLM `/metrics`；逐请求耗时与 Running、Waiting、KV Cache 使用率一起写入 JSON。
+- **机制验证**：重复前缀请求时检查缓存命中计数，再用 4/8 序列上限对照解释队列变化。请求从 API Server 到 Scheduler、KV Cache 和 GPU Worker 的关系，写在[架构笔记](phase3/learning_notes/01-request-lifecycle.md)中。
 
-本地 Python 环境、模型和缓存均在此目录，不安装进系统 Python：
+云端请求链路：`Mac 客户端 → SSH 本地转发 → vLLM API Server → Scheduler / KV Cache → GPU Worker`。客户端从同一条隧道读取 `/metrics`，把 API 层的耗时和引擎层的状态放在一起分析。
+
+两个刻意保留的取舍：云端 API 只开在回环地址，避免为了测试而直接暴露服务；调度对照把 `min_tokens` 和 `max_tokens` 都设为 384，减少回答长短带来的干扰。后者有助于解释排队现象，但并不代表真实用户流量的长度分布。
+
+另有两组留存逐请求数据的基线：Mac 上补采的 20 次请求全部成功，TTFT P50 为 0.0301 s；云端的 20 次远程流式请求也全部成功，TTFT P50 为 0.136 s。两组模型、提示词和链路不同，不能直接当作硬件跑分比较。[Mac 数据](phase2/results/06_sequential_stability_summary_20260920-132447.json) · [云端数据](phase3/results/cloud_20run_summary_20260921-141120.json)
+
+## 从哪里读起
+
+| 内容 | 说明 |
+| --- | --- |
+| [Mac Metal 基线](phase2/README.md) | 生成参数、思考模式、流式输出与短请求负载 |
+| [云端服务与实验脚本](phase3/README.md) | SSH 转发、客户端脚本和原始结果入口 |
+| [调度配置对照](phase3/results/scheduler_capacity_comparison.md) | 本页表格背后的请求级数据与分析 |
+| [请求链路笔记](phase3/learning_notes/01-request-lifecycle.md) | 用实测 Running/Waiting 解释连续批处理 |
+
+## 运行方式
+
+本地虚拟环境和模型缓存不在 Git 中。已有适配 Apple Silicon 的 `.venv` 时，可在两个终端分别运行：
 
 ```bash
-cd /path/to/vllm-lab
 source env.sh
 ./run_server.sh
 ```
-
-`run_server.sh` 启动 `Qwen/Qwen3-0.6B`，API 监听 `127.0.0.1:8000`，最大上下文 2048 tokens。首次运行可能下载模型到 `.cache/huggingface`。在另一个终端检查：
 
 ```bash
 curl -fsS http://127.0.0.1:8000/v1/models
 ./test_api.sh
 ```
 
-`test_api.sh` 关闭 Qwen3 思考模式以测试直接回答。停止服务时在运行 vLLM 的终端按 `Ctrl+C`。
+云端实验脚本是 **Mac 客户端**，不是云端一键部署脚本。先按[云端服务说明](phase3/README.md)准备 Qwen3-8B 服务和 SSH 转发，确认 `http://127.0.0.1:18000/health` 可用，再运行：
 
-## 仓库边界
+```bash
+python3 phase3/metrics_counter_walkthrough.py
+python3 phase3/prefix_partial_reuse.py
+python3 phase3/scheduler_capacity.py --requests 6 --tokens 384
+```
 
-仓库保留脚本、学习笔记及小型原始结果；不提交 `.venv/`、`.cache/`、模型权重、日志、密钥或云端实例数据。`.cache/pip/` 是可清理的安装缓存；清理 `.cache/huggingface/` 则需要以后重新下载模型。运行 `./storage_report.sh` 可查看本地占用。
+## 当前边界
 
-云端实例可能产生费用；第三阶段的脚本是 Mac 客户端，运行前应按 [第三阶段说明](phase3/README.md) 确认服务与 SSH 隧道。仓库未包含可直接复现云端安装的完整脚本，因此结果须连同环境说明阅读。
+这是单实例推理服务原型及性能分析项目，不是长期在线的托管服务。仓库没有打包云端虚拟环境、模型权重或完整的服务端安装自动化；也尚未覆盖鉴权、持续压测和多实例故障恢复。`.venv/`、`.cache/`、日志和密钥均不提交。所有性能数字都应连同模型、硬件、请求形状和采样方式阅读。

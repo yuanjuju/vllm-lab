@@ -1,8 +1,8 @@
-# 第一课：一条请求如何穿过 vLLM
+# 一条请求在 vLLM 中如何运行
 
-记录日期：2026-09-22。性质：理论讲解；云端实例已关机，本课未运行新的请求或性能测试。
+记录日期：2026-09-22。本文依据此前保存的云端实验结果解释请求路径；写作时实例已关机，没有新增请求或性能测试。
 
-## 一句话主线
+## 服务路径（简化）
 
 API Server 把聊天消息准备成模型输入；EngineCore 的 Scheduler 决定每轮处理哪些请求和多少 token，并管理 KV 缓存块；GPU Worker 执行模型前向计算；生成结果返回 API Server，再发送给客户端。下图是帮助理解的简化路径，不是完整进程或函数调用图。
 
@@ -17,7 +17,7 @@ flowchart LR
     A -->|流式内容或最终 JSON| U
 ```
 
-## 用已完成的六请求实验对应各环节
+## 用六请求结果解释调度
 
 Mac 同时提交 6 个不同请求，每个请求固定输出 384 tokens。API Server 接收和处理请求后交给引擎。`max-num-seqs=4` 时，引擎最多同时处理 4 条序列，因此监控中观测到 `max_running=4`、`max_waiting=2`。前 4 条约 6.8 秒完成，后 2 条约 13.5 秒完成。改为 `max-num-seqs=8` 后，6 条都可以运行，观测到 `max_running=6`、`max_waiting=0`，全部约 8.1 秒完成。两组都成功，总输出都是 2304 tokens。
 
@@ -41,14 +41,11 @@ Mac 同时提交 6 个不同请求，每个请求固定输出 384 tokens。API S
 
 `Running/Waiting` 是引擎状态，不等于网络连接数；`TTFT` 包含请求进入服务后的多项开销，不能直接当作纯 Prefill 时间。`prompt_tokens` 与 `completion_tokens` 分别是输入和输出 token 数，不是显存使用量。
 
-## 本课验收问题
+## 这份数据还不能说明什么
 
-1. 为什么同样 6 个请求，`max-num-seqs=4` 会出现 2 个 Waiting，而 `max-num-seqs=8` 没有？
-2. 为什么上限为 8 时全部请求更早完成，但先完成的 4 条各自可能变慢？
-3. `max-num-seqs`、`max-num-batched-tokens` 和 KV Cache 容量分别限制什么？
-4. 一个请求进入 Decode 后，新 token 为什么还能利用此前输入的 K/V？
-
-能不看资料用自己的话答出前三问，并画出 API → Scheduler → KV → Worker → API 的路径，即算本课通过。第四问将衔接下一课的 PagedAttention 与 KV 块分配。
+- 本次只改变 `max-num-seqs`，没有对 `max-num-batched-tokens` 或 KV Cache 容量做压力测试，因此无法据此判断它们在更长输入、更高并发下何时成为瓶颈。
+- `Running/Waiting` 证明了请求在调度器中的状态变化，但没有给出 Prefill、Decode 每一阶段的独立耗时。
+- 观察到 KV Cache 使用率，不等于验证了 PagedAttention 的块分配或淘汰策略；这些需要另外设计实验。
 
 ## 对照资料
 

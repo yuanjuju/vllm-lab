@@ -1,12 +1,5 @@
-# vLLM 核心学习笔记
+# 引擎机制笔记
 
-这组笔记将已经完成的 API、性能指标和云端实验串成 vLLM 的请求处理主线。后续总结与上传以这里的笔记和 `phase3/results/` 中的原始数据为依据；目前只保存在本地，尚未上传。
+[请求从 API 进入到 GPU 执行的路径](01-request-lifecycle.md)是这部分的主线：用已经记录的 6 请求调度实验，把 API Server、Scheduler、KV Cache 和 GPU Worker 的职责与 `Running/Waiting` 指标对应起来。它是对实测现象的架构解释，不是对 vLLM 源码的完整实现分析。
 
-| 顺序 | 主题 | 状态 | 材料 |
-| --- | --- | --- | --- |
-| 1 | 一条请求如何穿过 vLLM | 已讲解，理论课 | [01-request-lifecycle.md](01-request-lifecycle.md) |
-| 2 | PagedAttention 与 KV 块分配 | 待讲解 | — |
-| 3 | Prefill、Decode、分块 Prefill 的调度取舍 | 待实验 | — |
-| 4 | 量化、LoRA 与服务基准测试 | 待讲解 | — |
-
-已完成的 4/8 序列上限对照及局限见 [scheduler_capacity_comparison.md](../results/scheduler_capacity_comparison.md)。
+配套证据在[调度配置对照](../results/scheduler_capacity_comparison.md)和[原始结果目录](../results/)中。PagedAttention 的块分配细节、分块 Prefill、量化与 LoRA 尚未在这个仓库中做独立验证；等有对应实验和数据时再补笔记。
