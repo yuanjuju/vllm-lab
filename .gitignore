@@ -4,6 +4,8 @@
 __pycache__/
 *.py[cod]
 *.log
+!phase3/results/kv_server_*.log
+!phase3/results/token_budget_server_*.log
 .env
 .env.*
 *.pem

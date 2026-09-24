@@ -1,0 +1,29 @@
+{
+  "timestamp": "20260923-194248",
+  "base_url": "http://127.0.0.1:18000",
+  "model": "Qwen/Qwen3-8B",
+  "client_timeout_s": 0.05,
+  "retry_attempted": false,
+  "client_error": "TimeoutError: timed out",
+  "metrics_before": {
+    "running": 0.0,
+    "waiting": 0.0,
+    "abort_total": 0
+  },
+  "samples": [
+    {
+      "at_s": 0.1749,
+      "running": 0.0,
+      "waiting": 0.0,
+      "abort_total": 0
+    }
+  ],
+  "metrics_after": {
+    "running": 0.0,
+    "waiting": 0.0,
+    "abort_total": 0
+  },
+  "abort_counter_delta": 0,
+  "work_drained": true,
+  "health_status_after": 200
+}
