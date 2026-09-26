@@ -1,0 +1,160 @@
+{
+  "experiment_date": "2026-09-23",
+  "aggregation": "median and min-max of three formal runs; warmups excluded",
+  "open_loop": {
+    "1": {
+      "completed_rps": {
+        "median": 0.9416,
+        "min": 0.9404,
+        "max": 0.958,
+        "runs": 3
+      },
+      "goodput_rps": {
+        "median": 0.7062,
+        "min": 0.6386,
+        "max": 0.7836,
+        "runs": 3
+      },
+      "sources": [
+        "phase3/results/load_curve_20260923-193724-1790163444201299000_open_r1p0_formal.json",
+        "phase3/results/load_curve_20260923-193737-1790163457706780000_open_r1p0_formal.json",
+        "phase3/results/load_curve_20260923-193750-1790163470688948000_open_r1p0_formal.json"
+      ]
+    },
+    "2": {
+      "completed_rps": {
+        "median": 1.6783,
+        "min": 1.6689,
+        "max": 1.6973,
+        "runs": 3
+      },
+      "goodput_rps": {
+        "median": 1.6689,
+        "min": 1.4144,
+        "max": 1.6783,
+        "runs": 3
+      },
+      "sources": [
+        "phase3/results/load_curve_20260923-193804-1790163484115758000_open_r2p0_formal.json",
+        "phase3/results/load_curve_20260923-193811-1790163491989697000_open_r2p0_formal.json",
+        "phase3/results/load_curve_20260923-193819-1790163499443958000_open_r2p0_formal.json"
+      ]
+    },
+    "4": {
+      "completed_rps": {
+        "median": 2.3916,
+        "min": 2.2663,
+        "max": 2.7607,
+        "runs": 3
+      },
+      "goodput_rps": {
+        "median": 1.8404,
+        "min": 0.3986,
+        "max": 2.0774,
+        "runs": 3
+      },
+      "sources": [
+        "phase3/results/load_curve_20260923-193827-1790163507501273000_open_r4p0_formal.json",
+        "phase3/results/load_curve_20260923-193836-1790163516025822000_open_r4p0_formal.json",
+        "phase3/results/load_curve_20260923-193841-1790163521668363000_open_r4p0_formal.json"
+      ]
+    },
+    "6": {
+      "completed_rps": {
+        "median": 3.5612,
+        "min": 2.4085,
+        "max": 3.6354,
+        "runs": 3
+      },
+      "goodput_rps": {
+        "median": 2.0774,
+        "min": 0.0,
+        "max": 3.6354,
+        "runs": 3
+      },
+      "sources": [
+        "phase3/results/load_curve_20260923-193846-1790163526616849000_open_r6p0_formal.json",
+        "phase3/results/load_curve_20260923-193853-1790163533460175000_open_r6p0_formal.json",
+        "phase3/results/load_curve_20260923-193859-1790163539326824000_open_r6p0_formal.json"
+      ]
+    }
+  },
+  "long_prefill": {
+    "512": {
+      "server_mean_ttft_s": {
+        "median": 0.5648,
+        "min": 0.5013,
+        "max": 0.6018,
+        "runs": 3
+      },
+      "sources": [
+        "phase3/results/token_budget_20260923-192811-1790162891367015000_512_long_formal.json",
+        "phase3/results/token_budget_20260923-192816-1790162896333952000_512_long_formal.json",
+        "phase3/results/token_budget_20260923-192821-1790162901216191000_512_long_formal.json"
+      ]
+    },
+    "4096": {
+      "server_mean_ttft_s": {
+        "median": 0.4495,
+        "min": 0.4436,
+        "max": 0.4613,
+        "runs": 3
+      },
+      "sources": [
+        "phase3/results/token_budget_20260923-193045-1790163045020209000_4096_long_formal.json",
+        "phase3/results/token_budget_20260923-193049-1790163049560600000_4096_long_formal.json",
+        "phase3/results/token_budget_20260923-193055-1790163055215921000_4096_long_formal.json"
+      ]
+    }
+  },
+  "kv_pressure": {
+    "normal": {
+      "batch_max_content_gap_s": {
+        "median": 0.103498,
+        "min": 0.073117,
+        "max": 0.596935,
+        "runs": 3
+      },
+      "throughput_tok_s": {
+        "median": 420.514,
+        "min": 419.646,
+        "max": 422.773,
+        "runs": 3
+      },
+      "preemptions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "sources": [
+        "phase3/results/token_budget_20260923-190102-1790161262773589000_4096_short_formal.json",
+        "phase3/results/token_budget_20260923-190152-1790161312720515000_4096_short_formal.json",
+        "phase3/results/token_budget_20260923-190232-1790161352133941000_4096_short_formal.json"
+      ]
+    },
+    "1024_blocks": {
+      "batch_max_content_gap_s": {
+        "median": 3.149256,
+        "min": 2.858112,
+        "max": 3.170592,
+        "runs": 3
+      },
+      "throughput_tok_s": {
+        "median": 394.806,
+        "min": 392.686,
+        "max": 395.425,
+        "runs": 3
+      },
+      "preemptions": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "sources": [
+        "phase3/results/token_budget_20260923-190501-1790161501866669000_4096_short_formal.json",
+        "phase3/results/token_budget_20260923-190612-1790161572382679000_4096_short_formal.json",
+        "phase3/results/token_budget_20260923-190655-1790161615006383000_4096_short_formal.json"
+      ]
+    }
+  }
+}
