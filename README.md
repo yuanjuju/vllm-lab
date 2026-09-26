@@ -1,71 +1,193 @@
-# vLLM 推理服务与性能分析
+# vLLM Inference Systems Lab
 
+**LLM Serving · Runtime Observability · Scheduler Characterization · SLO Benchmarking**
 
+围绕 **vLLM V1 / Qwen3** 执行链路构建推理性能实验体系，覆盖 **Metal / CUDA 后端验证、Prefill–Decode 调度约束分析、KV Block 压力实验、引擎指标差分与 SLO 约束下的负载评估**。
 
-## 入门实验
+以 request-level SSE event timelines、engine metric deltas 和服务启动配置为联合证据，刻画 `max-num-seqs`、`max-num-batched-tokens` 与 KV 容量边界对 TTFT、流式停顿、聚合输出吞吐及 Goodput 的影响。实验客户端、观测采集器和结果分析工具均随仓库归档。
 
-在云端 Qwen3-8B / vLLM 0.29.0 服务上，同时发送 6 个请求，每个请求固定生成 384 tokens。只调整 `max-num-seqs`，观察到：
+[Architecture](docs/architecture.md) · [性能证据](#实验结果) · [运行与复现](#运行与复现) · [实验报告](phase3/README.md) · [机制笔记](phase3/learning_notes/README.md)
 
-| 配置 | Running 峰值 | Waiting 峰值 | 整批耗时 | 聚合输出吞吐量 |
-| --- | ---: | ---: | ---: | ---: |
-| `max-num-seqs=4` | 4 | 2 | 13.672 s | 168.52 tokens/s |
-| `max-num-seqs=8` | 6 | 0 | 8.185 s | 281.49 tokens/s |
+`Python` · `vLLM` · `CUDA / Metal` · `HTTP / SSE` · `Prometheus metrics` · `Benchmark / Goodput`
 
-“把参数调大，GPU 就算得更快”的说法是错误的。这组负载下，改动让两个等待中的请求提前进入调度，整批任务更早结束；与此同时，原本先完成的 4 个请求各自稍慢。**吞吐量、排队时间和单请求延迟需要一起看。**实验只在这台机器上各运行一次，不能据此确定最佳生产配置。[完整条件、逐请求数据和局限](phase3/results/scheduler_capacity_comparison.md)
+## Technical Scope
 
-随后完成了 KV 容量与 Preemption 的安全对照：同样的 8 并发固定负载，在正常 137360-token KV 池中连续 3 批无抢占；仅把逻辑 KV 池限制为 1024 blocks（16384 tokens）后，连续 3 批各发生 1 次抢占。两组均 24/24 请求成功、没有 OOM，但受控组每批都有一条请求出现约 3 秒流式停顿，整批输出吞吐量中位数下降 6.1%。这证明 **Waiting 不能单独代表抢占，必须联合 KV 使用率、Preemption counter 和请求级延迟判断。**[完整对照与原始数据](phase3/results/kv_pressure_comparison_20260923.md)
+| 工程域 | 实现与分析对象 | 实现入口 |
+| --- | --- | --- |
+| **Heterogeneous Backend Validation** | Apple Silicon / vLLM-Metal 与 NVIDIA CUDA 两套执行环境；模型注册、Chat Completions 协议、SSE completion lifecycle 验证 | [Metal runtime](run_server.sh) · [CUDA baseline](phase3/README.md) |
+| **Workload Orchestration** | Barrier-synchronized burst、closed-loop concurrency、deterministic open-loop arrivals；固定输出工作量与 client release lag 记录 | [scheduler_capacity.py](phase3/scheduler_capacity.py) · [load_curve_benchmark.py](phase3/load_curve_benchmark.py) |
+| **Runtime Instrumentation** | Gauge 时间序列、Counter 增量、Histogram delta；Running / Waiting / KV occupancy / Preemption 与 request-level latency 对齐分析 | [token_budget_benchmark.py](phase3/token_budget_benchmark.py) · [counter walkthrough](phase3/metrics_counter_walkthrough.py) |
+| **Scheduler Characterization** | Sequence admission、iteration-level token budget、Chunked Prefill 与 Decode overlap；区分序列名额、每轮 token budget、KV 空间三类约束 | [Token Budget matrix](phase3/results/token_budget_comparison_20260923.md) |
+| **KV & Prefix Cache Analysis** | 基于模型结构的 KV footprint 估算、block-budget 对照、Preemption / Recompute 现象分析；shared-prefix / changed-prefix counter 验证 | [KV pressure](phase3/results/kv_pressure_comparison_20260923.md) · [prefix reuse](phase3/prefix_partial_reuse.py) |
+| **SLO-constrained Load Evaluation** | Offered load / achieved throughput / Goodput 分离；TTFT 与 E2E 联合约束、尾延迟与运行间波动分析 | [load_curve_benchmark.py](phase3/load_curve_benchmark.py) |
+| **Request Lifecycle & Recovery** | Stream disconnect、socket timeout、queue drain 与 post-cancellation recovery probes；识别 abort counter 的观测盲区 | [cancellation probe](phase3/overload_recovery_probe.py) · [timeout probe](phase3/client_timeout_probe.py) |
+| **Reproducible Analysis Artifacts** | Warmup/formal 隔离、逐请求结果、metrics 前后快照、选定服务日志；带 source provenance 的离线统计与图表重建 | [raw artifacts](phase3/results/) · [build_showcase.py](tools/build_showcase.py) |
 
-性能工程主线也已完成第一轮闭环：Token Budget 对照证明 long/512 的 Waiting 来自单轮 token budget，而非序列名额或 KV；closed/open-loop 容量曲线用预先声明的 SLO 计算 Goodput；10 req/s 冲击测到 Waiting 峰值 21、KV 仅 1.55%、无抢占，说明这是普通排队过载。[Token Budget](phase3/results/token_budget_comparison_20260923.md) · [容量曲线](phase3/results/benchmark_capacity_curve_20260923.md) · [过载与恢复](phase3/results/overload_recovery_20260923.md)
+## Runtime Architecture
 
-## 项目做了什么
+```mermaid
+flowchart LR
+    subgraph Client[Python benchmark client]
+        Load[并发 / 到达率控制] --> HTTP[HTTP + SSE 测量]
+        Poll[metrics 采集]
+    end
+    HTTP --> Tunnel[SSH 本地转发]
+    Poll --> Tunnel
+    subgraph Server[CUDA inference instance]
+        Tunnel --> API[vLLM API Server]
+        API --> Scheduler[Scheduler / KV Cache]
+        Scheduler --> GPU[Qwen3-8B GPU Worker]
+        API --> Metrics[Prometheus metrics endpoint]
+    end
+    HTTP --> Result[逐请求数据 + 指标快照]
+    Poll --> Result
+    Result --> Analysis[对照分析 / SLO / Goodput]
+```
 
-- **服务部署**：Mac M5 使用 vLLM-Metal 运行 Qwen3-0.6B；云端使用 CUDA/BF16 运行 Qwen3-8B。两端都通过 OpenAI 兼容 API 验证模型加载和聊天生成。云端 API 只监听回环地址，Mac 经 SSH 隧道访问，没有把 8000 端口直接暴露到公网。
-- **测量与观测**：客户端记录流式 TTFT、总耗时、输出速度和成功率。`scheduler_capacity.py` 用 Barrier 同步发起请求、线程池并发提交，并轮询 vLLM `/metrics`；逐请求耗时与 Running、Waiting、KV Cache 使用率一起写入 JSON。
-- **机制验证**：重复前缀请求时检查缓存命中计数，用 4/8 序列上限对照解释队列变化，再用受控 KV 池区分普通排队与真实抢占。请求链路写在[架构笔记](phase3/learning_notes/01-request-lifecycle.md)中，KV 容量和重算机制写在[Preemption 笔记](phase3/learning_notes/03-kv-cache-preemption.md)中。
+客户端负载生成、指标采集和结果分析由本仓库提供；API Server、调度器、PagedAttention / KV 管理与 GPU 执行由 vLLM 提供。Mac 本地基线使用独立的 Metal 后端。组件边界、数据结构和设计取舍见 [架构说明](docs/architecture.md)。
 
-云端请求链路：`Mac 客户端 → SSH 本地转发 → vLLM API Server → Scheduler / KV Cache → GPU Worker`。客户端从同一条隧道读取 `/metrics`，把 API 层的耗时和引擎层的状态放在一起分析。
+## 实验结果
 
-两个刻意保留的取舍：云端 API 只开在回环地址，避免为了测试而直接暴露服务；调度对照把 `min_tokens` 和 `max_tokens` 都设为 384，减少回答长短带来的干扰。后者有助于解释排队现象，但并不代表真实用户流量的长度分布。
+![Recorded performance evidence](docs/assets/performance-evidence.png)
 
-另有两组留存逐请求数据的基线：Mac 上补采的 20 次请求全部成功，TTFT P50 为 0.0301 s；云端的 20 次远程流式请求也全部成功，TTFT P50 为 0.136 s。两组模型、提示词和链路不同，不能直接当作硬件跑分比较。[Mac 数据](phase2/results/06_sequential_stability_summary_20260920-132447.json) · [云端数据](phase3/results/cloud_20run_summary_20260921-141120.json)
+图表由已提交的 **2026-09-23 原始 JSON** 重新汇总生成。各点取 3 次正式运行的中位数，误差线为最小值–最大值；三个面板使用不同负载。数字可通过 [来源清单与机器汇总](docs/assets/evidence-summary.json) 追溯。
 
-## 从哪里读起
+| Characterization Axis | 实验设计与结果 | 分析结论 |
+| --- | --- | --- |
+| **Admission-bound Queueing** | 6 并发下，`max-num-seqs=4` 时 Running=4、Waiting=2；改为 8 后 Waiting=0，整批耗时 13.672 → 8.185 s。每组仅 1 次 | 序列名额限制影响完成时间；单批结果用于机制观察。[报告](phase3/results/scheduler_capacity_comparison.md) |
+| **Token-budget Sensitivity** | 512/4096 × short/long/mixed，共 18 个正式批次、108 个请求。长输入服务端平均 TTFT 的三次中位数 0.5648 → 0.4495 s；混合负载服务端平均 ITL 约增加 4.1% | Prefill 首 token 延迟与 Decode 间隔存在取舍，吞吐变化依赖负载形状。[报告](phase3/results/token_budget_comparison_20260923.md) |
+| **KV Pressure & Preemption** | 正常池与 1024-block 受控池各 3 批、8 并发；受控组每批 Preemption +1，最大单请求停顿约 2.86–3.17 s，吞吐中位数下降 6.1% | 联合 KV、counter、队列与请求停顿定位抢占；此实验验证机制，不能据此推算正常显存池容量。[报告](phase3/results/kv_pressure_comparison_20260923.md) |
+| **SLO-constrained Throughput** | 4 档并发 + 4 档到达率，每点 3 次、每次 12 请求，共 288/288 成功；同时计算 TTFT ≤ 0.5 s、E2E ≤ 5 s 的 Goodput | 完成率与 SLO 达标率是不同指标；6 req/s 下已出现 Waiting。[报告](phase3/results/benchmark_capacity_curve_20260923.md) |
+| **Overload & Lifecycle Recovery** | 10 req/s 注入 40 请求，Waiting 峰值 21、KV 峰值 1.55%、无抢占；40/40 成功，但 SLO 达标率仅 20%；另完成断流和超时探针 | 识别普通排队过载，并验证请求清理及恢复；abort counter 存在观测缺口。[报告](phase3/results/overload_recovery_20260923.md) |
 
-| 内容 | 说明 |
-| --- | --- |
-| [Mac Metal 基线](phase2/README.md) | 生成参数、思考模式、流式输出与短请求负载 |
-| [云端服务与实验脚本](phase3/README.md) | SSH 转发、客户端脚本和原始结果入口 |
-| [调度配置对照](phase3/results/scheduler_capacity_comparison.md) | 本页表格背后的请求级数据与分析 |
-| [请求链路笔记](phase3/learning_notes/01-request-lifecycle.md) | 用实测 Running/Waiting 解释连续批处理 |
-| [KV 与 Preemption 对照](phase3/results/kv_pressure_comparison_20260923.md) | 区分排队、KV 压力、抢占与重算的完整证据链 |
-| [Token Budget 对照](phase3/results/token_budget_comparison_20260923.md) | Chunked Prefill 对 TTFT、ITL、吞吐量的取舍 |
-| [Benchmark 容量曲线](phase3/results/benchmark_capacity_curve_20260923.md) | Closed/open-loop、Goodput、SLO 与重复范围 |
-| [过载与恢复](phase3/results/overload_recovery_20260923.md) | 排队增长、超时、取消、恢复与监控边界 |
+**环境与解释范围：** 上述 CUDA 实验使用 Qwen3-8B BF16、vLLM 0.29.0、单张 RTX 4090（实验实例报告 49140 MiB），客户端通过 Mac → SSH 链路访问。客户端延迟包含网络与缓冲；短批次、少量重复的实验结果用于解释机制和筛选候选配置，尚不足以给出生产稳定 QPS。
 
-## 运行方式
+另有 [Mac Metal 基线](phase2/README.md) 与 [云端首次调用及基线](phase3/results/cloud_baseline.md)。两端的模型、输入与链路不同，不作硬件性能横向排名。
 
-本地虚拟环境和模型缓存不在 Git 中。已有适配 Apple Silicon 的 `.venv` 时，可在两个终端分别运行：
+## Instrumentation & Measurement Model
+
+### Request-level / Engine-level 分层观测
+
+客户端以 `perf_counter()` 记录请求开始、首个非空 SSE 内容事件、内容事件间隔和请求结束；服务端指标由 `/metrics` 周期采样与批次前后快照构成。两者联合使用，但保留各自的时间与聚合语义。
+
+| 观测层 | 关键量 | 统计语义 |
+| --- | --- | --- |
+| Client | TTFT、E2E、max content gap、release lag | 端到端时延含 SSH 与网络；SSE 事件不等于单 token |
+| Scheduler | Running、Waiting、capacity Waiting | 离散采样峰值；用于约束分析，不能单独判定 Preemption |
+| KV / Cache | KV occupancy、Preemption delta、prefix hit/query delta | Counter 需以同一服务实例、隔离流量下的前后差值解释 |
+| Engine latency | Queue time / TTFT / ITL histograms | 批次均值来自 `Δsum / Δcount`；分位数保留为 bucket upper bound |
+| Service objective | SLO attainment、Goodput | 成功响应还需同时满足 TTFT 与 E2E 阈值 |
+
+对服务端累计 Histogram，批次均值采用：
+
+```math
+\bar{t}_{\mathrm{batch}} = \frac{S_{\mathrm{after}}-S_{\mathrm{before}}}{C_{\mathrm{after}}-C_{\mathrm{before}}}
+```
+
+对完成观测窗口 `T`，将吞吐与 SLO 有效吞吐分开：
+
+```math
+X = \frac{N_{\mathrm{success}}}{T}, \qquad
+G = \frac{\sum_i \mathbf{1}[\mathrm{success}_i \land \mathrm{TTFT}_i \le \tau_f \land \mathrm{E2E}_i \le \tau_e]}{T}
+```
+
+归档负载曲线预先固定 `TTFT ≤ 0.5 s`、`E2E ≤ 5 s`；它们是实验 SLO。TTFT/E2E 从实际请求开始计时，计划释放滞后单独记录；因此 `release_lag` 仍需参与 open-loop 有效性复核。
+
+### KV Footprint 与压力实验
+
+对于本次 Qwen3-8B 的均匀全注意力结构，理论 KV 存储量按层数、KV heads、head dimension 与元素字节数估算：
+
+```math
+M_{\mathrm{KV/token}}=2 \times L \times H_{\mathrm{KV}} \times D_h \times B
+=2 \times 36 \times 8 \times 128 \times 2
+=144\,\mathrm{KiB}
+```
+
+16-token block 对应约 2.25 MiB 的理论 KV 数据。实验通过 `num-gpu-blocks-override=1024` 受控限制逻辑池，将 **KV 接近上限 → Preemption counter 增长 → Running/Waiting 迁移 → 单请求长停顿** 串联验证。该估算不等于总 GPU 显存占用，也不直接给出生产并发容量。
+
+### Experimental Controls
+
+固定输出长度、定义输入形状并限制跨批次前缀复用；配置变更以服务启动日志确认。Warmup 与 formal runs 分离，正式结果保留中位数、min/max 和异常批次。Histogram / Preemption 差值在缺失时保留 `null`；部分 gauge 的缺失语义尚未统一，详见 [结果契约与实现边界](docs/architecture.md#指标与结果契约)。
+
+## 运行与复现
+
+### 离线查看与重建报告
+
+不需要模型、GPU 或正在运行的服务：
+
+```bash
+# 使用 Python 标准库，核对已归档实验并重建带来源的 JSON 汇总
+python3 tools/build_showcase.py --json-only
+
+# 只预览测试负载，不请求服务或写入实验结果
+python3 phase3/token_budget_benchmark.py --budget 4096 --shape mixed --dry-run
+```
+
+重新绘制图表时，使用项目内独立环境，不改动推理环境：
+
+```bash
+python3 -m venv .venv-report
+.venv-report/bin/python -m pip install -r tools/requirements-report.txt
+MPLCONFIGDIR="$PWD/.cache/matplotlib" .venv-report/bin/python tools/build_showcase.py
+```
+
+### 连接已准备好的 CUDA 服务
+
+先按 [云端服务说明](phase3/README.md) 准备 Qwen3-8B 服务和 SSH 转发。当前脚本不会创建云实例、部署模型或修改服务配置。
+
+```bash
+curl -fsS http://127.0.0.1:18000/health
+curl -fsS http://127.0.0.1:18000/v1/models
+
+# 固定并发与固定到达率；预热示例和正式示例分别执行
+python3 phase3/load_curve_benchmark.py --mode closed --concurrency 4 --requests 12 --warmup
+python3 phase3/load_curve_benchmark.py --mode closed --concurrency 4 --requests 12
+python3 phase3/load_curve_benchmark.py --mode open --rate 2 --requests 12 --slo-ttft 0.5 --slo-e2e 5
+
+# 调度对照、指标增量与共享前缀验证
+python3 phase3/scheduler_capacity.py --requests 6 --tokens 384
+python3 phase3/token_budget_benchmark.py --budget 4096 --shape mixed
+python3 phase3/metrics_counter_walkthrough.py
+python3 phase3/prefix_partial_reuse.py
+```
+
+客户端实验脚本仅依赖 Python 标准库，数据写入 `phase3/results/`。复现报告中的统计需按其负载、预热和重复次数运行；上面命令只是单批入口。`--budget` 是服务端配置标签，**不会替你修改 vLLM 参数**。超时和取消探针会主动中断请求，使用独占实验实例运行。
+
+### 本地 Metal 基线
+
+已有适配 vLLM-Metal 的项目内 `.venv` 和模型时：
 
 ```bash
 source env.sh
 ./run_server.sh
-```
-
-```bash
-curl -fsS http://127.0.0.1:8000/v1/models
+# 在另一个已激活环境的终端执行
 ./test_api.sh
 ```
 
-云端实验脚本是 **Mac 客户端**，不是云端一键部署脚本。先按[云端服务说明](phase3/README.md)准备 Qwen3-8B 服务和 SSH 转发，确认 `http://127.0.0.1:18000/health` 可用，再运行：
+这不是新机器的一键安装入口；本地 Phase 2 保留原始数据，部分临时采集脚本未归档，详见 [Phase 2 说明](phase2/README.md)。
 
-```bash
-python3 phase3/metrics_counter_walkthrough.py
-python3 phase3/prefix_partial_reuse.py
-python3 phase3/scheduler_capacity.py --requests 6 --tokens 384
-python3 phase3/token_budget_benchmark.py --budget 4096 --shape mixed
-python3 phase3/load_curve_benchmark.py --mode open --rate 2 --requests 12
+## Repository Layout
+
+```text
+vllm-lab/
+├── env.sh / run_server.sh / test_api.sh  # 本地 Metal 环境与服务检查
+├── phase2/                             # 本地参数实验与基线归档
+├── phase3/
+│   ├── *_benchmark.py                  # 流式测量、token budget、负载曲线
+│   ├── *_probe.py                      # 取消、超时与恢复探针
+│   ├── results/                        # 原始 JSON、实验报告、选定日志
+│   └── learning_notes/                 # 调度、缓存、benchmark、运维笔记
+├── docs/architecture.md                # 实现边界、数据流与工程取舍
+├── docs/assets/                        # 从历史数据生成的图表与来源清单
+└── tools/build_showcase.py             # 离线汇总与展示图生成
 ```
 
-## 当前边界
+## Engineering Roadmap
 
-这是单实例推理服务原型及性能分析项目，不是长期在线的托管服务。仓库没有打包云端虚拟环境、模型权重或完整的服务端安装自动化；也尚未覆盖鉴权、长期稳态压测和多实例故障恢复。`.venv/`、`.cache/`、通用运行日志和密钥不提交；只有报告明确引用的少量实验服务日志作为原始证据保留。所有性能数字都应连同模型、硬件、请求形状和采样方式阅读。
+当前实现覆盖单实例 runtime characterization、benchmark instrumentation 与故障恢复探测。后续扩展方向：
+
+- **容量可信度：** 更长稳态负载、更多重复、同机房客户端、真实输入/输出长度分布。
+- **观测完整性：** 统一缺失指标处理，补充取消路径证据、长期 Prometheus / Grafana 与告警。
+- **服务治理：** 鉴权、TLS、入口限流、代理层背压及有界重试；目前尚未实现。
+- **部署与扩展：** 服务端环境自动化、多实例路由与故障恢复；目前未覆盖。
+- **量化对照：** 独立比较权重量化与 KV dtype；本仓库尚无 FP8 / AWQ / GPTQ 的实测结果。
