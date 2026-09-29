@@ -41,7 +41,7 @@
 | 每层注意力结构（GQA 4:1 的代码来源） | Attention.forward | `qwen3.py:153-170`（qkv split：q 4096 维、k/v 各 1024 维） | 见左 | 已验证 |
 | KV 块的物理组织 | block table 与 slot mapping | `block_table.py:157-177`（每请求一行块号）、`:201-229`（token → 块号+偏移） | 见左 | 已验证 |
 | phase2 的 temperature / top_p 生效位置 | Sampler | `sampler.py:228-242`（temperature=除法、greedy=argmax）、`:274-303`（主流程） | 见左 | 已验证 |
-| 服务启动日志出现 CUDA graph 捕获 | 捕获档位与 uniform decode 判定 | 归档日志 `cudagraph_capture_sizes: [1,2,4,8,16]`；`gpu_model_runner.py:3950-3968`（`_is_uniform_decode`）；捕获本体在 `v1/cudagraph_dispatcher.py`（未逐行读） | 见左 | 部分验证 |
+| 服务启动日志出现 CUDA graph 捕获 | 捕获档位与 uniform decode 判定 | 归档日志 `cudagraph_capture_sizes: [1,2,4,8,16]`；`gpu_model_runner.py:3950-3968`（`_is_uniform_decode`）；捕获本体在 `v1/cudagraph_dispatcher.py`（未逐行读） | 见左；实验对照见 [phase5 #1](../phase5/results/eager_vs_cudagraph_20260929.md) | 已验证（A/B 实测） |
 | `num-gpu-blocks-override` 决定逻辑池大小 | profile 与块数确定 | `vllm/v1/worker/gpu_worker.py` | — | 未读 |
 
 ## 观测开关
