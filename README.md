@@ -58,7 +58,7 @@ flowchart LR
 | **Token-budget Sensitivity** | 512/4096 × short/long/mixed，共 18 个正式批次、108 个请求。长输入服务端平均 TTFT 的三次中位数 0.5648 → 0.4495 s；混合负载服务端平均 ITL 约增加 4.1% | Prefill 首 token 延迟与 Decode 间隔存在取舍，吞吐变化依赖负载形状。[报告](phase3/results/token_budget_comparison_20260923.md) |
 | **KV Pressure & Preemption** | 正常池与 1024-block 受控池各 3 批、8 并发；受控组每批 Preemption +1，最大单请求停顿约 2.86–3.17 s，吞吐中位数下降 6.1% | 联合 KV、counter、队列与请求停顿定位抢占；此实验验证机制，不能据此推算正常显存池容量。[报告](phase3/results/kv_pressure_comparison_20260923.md) |
 | **SLO-constrained Throughput** | 4 档并发 + 4 档到达率，每点 3 次、每次 12 请求，共 288/288 成功；同时计算 TTFT ≤ 0.5 s、E2E ≤ 5 s 的 Goodput | 完成率与 SLO 达标率是不同指标；6 req/s 下已出现 Waiting。[报告](phase3/results/benchmark_capacity_curve_20260923.md) |
-| **Overload & Lifecycle Recovery** | 10 req/s 注入 40 请求，Waiting 峰值 21、KV 峰值 1.55%、无抢占；40/40 成功，但 SLO 达标率仅 20%；另完成断流和超时探针 | 识别普通排队过载，并验证请求清理及恢复；abort counter 存在观测缺口。[报告](phase3/results/overload_recovery_20260923.md) |
+| **Overload & Lifecycle Recovery** | 10 req/s 注入 40 请求，Waiting 峰值 21、KV 峰值 1.55%、无抢占；40/40 成功，但 SLO 达标率仅 20%；另完成断流和超时探针 | 识别普通排队过载，并验证请求清理及恢复；abort counter 的观测缺口已由源码定位——客户端取消完全绕过该统计（三路径证据链）。[报告](phase3/results/overload_recovery_20260923.md) |
 | **Execution Mode Trade-off** | 默认（CUDA graph + torch.compile）vs `--enforce-eager`，c1/c8 各预热 1 + 正式 3，共 192/192 成功；c8 输出吞吐中位数 289.8 → 236.9 tok/s（−18.2%），TTFT 持平；引擎初始化 132.7 s vs 20.6 s | eager 的代价集中于 decode：每步约 +4.5 ms 且 batch 1→8 近似常数，指向 CPU 端 kernel 启动开销；该开关同时关闭 torch.compile。[报告](phase5/results/eager_vs_cudagraph_20260929.md) |
 
 **环境与解释范围：** 上述 CUDA 实验使用 Qwen3-8B BF16、vLLM 0.29.0、单张 RTX 4090（实验实例报告 49140 MiB），客户端通过 Mac → SSH 链路访问。客户端延迟包含网络与缓冲；短批次、少量重复的实验结果用于解释机制和筛选候选配置，尚不足以给出生产稳定 QPS。

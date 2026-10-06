@@ -1,6 +1,6 @@
 # 过载、超时、取消与恢复实验
 
-记录日期：2026-09-23。
+记录日期：2026-09-23（2026-10-07 回填 abort counter 的源码级机制）。
 
 ## 短时过载结果
 
@@ -33,6 +33,21 @@
 - 健康检查与新请求能够恢复；
 - 不能把 abort counter 不变解释为没有发生客户端取消；这是当前可观测性缺口，需要结合连接日志、Running/Waiting 和恢复探针。
 
+### 回填：abort counter 恒为 0 的源码级机制（2026-10-07 补充）
+
+Phase 4 精读 vLLM v0.29.0 metrics 曝写层后，上述"观测缺口"从现象升级为机制结论：**客户端取消的请求在 vLLM 0.29.0 的 Prometheus 体系中完全不可见——不是采样漏掉，是设计如此。** 完整证据链（行号基于 v0.29.0）：
+
+| 环节 | 代码位置 | 行为 |
+| --- | --- | --- |
+| 序列预建 | `vllm/v1/metrics/loggers.py:719-725` | 为 `FinishReason` 每个取值（含 `abort`）预建 counter label，所以 `/metrics` 里**看得到**这条序列，值恒 0 |
+| 唯一自增点 | `loggers.py:1221-1224` | `for finished_request in iteration_stats.finished_requests: ...inc()`——只统计进入 IterationStats 的完成请求 |
+| 唯一填充点 | `vllm/v1/engine/output_processor.py:852`（`_update_stats_from_finished`）→ `:863` | 只有它向 IterationStats 登记完成请求 |
+| 调用条件 | `output_processor.py:741` | 该函数只在**正常 finish 分支**被调用 |
+| 取消路径绕过 | `output_processor.py:526-547` | 客户端断开 → `abort_requests` 直接 pop 请求状态、推最后一个 ABORT 输出即返回，**不触碰统计** |
+| 迟到输出丢弃 | `output_processor.py:654-656` | EngineCore 稍后产生的 `FINISHED_ABORTED` 回来时请求状态已删，直接 `continue` |
+
+**修正后的建议**：不要用 abort label 判断取消是否发生（它永远是 0）。可靠的替代口径是 **发送数 − `request_success_total` 总增量的差值**，配合客户端侧计数交叉验证。源码推导详见 [Phase 4 笔记 04](../../phase4/notes/04-api-and-metrics.md)。
+
 ## 限流、背压和重试原则
 
 - 在 API 入口限制“正在处理 + 排队”的总量；超过阈值应快速返回 429/503，而不是无限累积 Waiting。
@@ -49,7 +64,7 @@
 2. Python 探针：PyTorch/vLLM 版本、`torch.cuda.is_available()`。
 3. 服务日志：模型、dtype、max model len、token budget、max seqs、KV tokens。
 4. `/health`、`/v1/models` 和一条真实生成请求；只有 health 200 不等于模型生成可用。
-5. Prometheus：Running、Waiting 及 reason、KV usage、Preemption、queue time、TTFT、ITL、成功/abort/error counter。
+5. Prometheus：Running、Waiting 及 reason、KV usage、Preemption、queue time、TTFT、ITL、成功/abort/error counter。**注意：abort counter 恒为 0，客户端取消不可见（见上文回填），告警不要依赖它。**
 6. 主机侧 GPU/CPU/内存/磁盘与 API 层 HTTP 状态、超时、客户端取消共同观察。
 
 可用于 Grafana 的基础 PromQL 示例：

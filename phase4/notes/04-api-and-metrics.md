@@ -44,7 +44,7 @@ phase3 overload 实验结论"abort counter 未提供有效证据"的源码级答
 2. **本地 abort 绕过统计**：客户端断开 → `output_processor.py:526-547` `abort_requests`——直接 pop 请求状态、给客户端推最后一个 ABORT 输出，**不调用** `_update_stats_from_finished`（计数只发生在正常 finish 分支 `:730-744` → `:863`）。
 3. **迟到输出被丢弃**：EngineCore 稍后产生的 FINISHED_ABORTED 输出回到 API 进程时，请求状态已删，`:655` "Ignore output for already-aborted request" 直接 continue。
 
-**结论：客户端取消的请求在 vLLM 0.29.0 的 Prometheus 体系中不可见**（无专门 counter、success counter 也不计）。可行的替代观测：发送数 − `request_success` 总增量的差值、访问日志、或客户端侧计数。这一发现应回填 phase3 的 [overload 报告](../../phase3/results/overload_recovery_20260923.md)结论。
+**结论：客户端取消的请求在 vLLM 0.29.0 的 Prometheus 体系中不可见**（无专门 counter、success counter 也不计）。可行的替代观测：发送数 − `request_success` 总增量的差值、访问日志、或客户端侧计数。已于 2026-10-07 回填至 phase3 的 [overload 报告](../../phase3/results/overload_recovery_20260923.md)。
 
 ## 与实验数据的对应
 

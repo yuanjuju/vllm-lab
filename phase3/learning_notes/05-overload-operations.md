@@ -10,6 +10,6 @@
 
 生产化常用措施是入口限流、有限队列、背压、分层超时、取消传播和带抖动的有限重试。生成请求通常不是天然幂等；客户端超时不代表服务端一定没开始计算，因此没有请求 ID/幂等键时，盲目重试可能重复消费 GPU 并放大过载。
 
-[2026-09-23 过载与恢复实验](../results/overload_recovery_20260923.md)在 10 req/s 短时冲击下测到 Waiting 峰值 21、TTFT P95 6.28 秒，而 KV 只有 1.55%、Preemption 为 0；它是普通排队过载。客户端取消和超时后 Running/Waiting 均能清零且 health 恢复，但 abort counter 没有增加，说明监控必须交叉验证。
+[2026-09-23 过载与恢复实验](../results/overload_recovery_20260923.md)在 10 req/s 短时冲击下测到 Waiting 峰值 21、TTFT P95 6.28 秒，而 KV 只有 1.55%、Preemption 为 0；它是普通排队过载。客户端取消和超时后 Running/Waiting 均能清零且 health 恢复，但 abort counter 没有增加——**这不是采样遗漏：vLLM 0.29.0 中客户端取消完全绕过该统计（源码机制见报告回填）**。因此取消类事件的监控必须用其他口径交叉验证（如发送数 − `request_success_total` 增量）。
 
 本项目仍未实现鉴权、TLS、限流代理、长期 Prometheus/Grafana、自动恢复、多实例负载均衡、扩缩容或容灾，因此应继续称为“单实例推理服务原型”。

@@ -52,6 +52,6 @@
 | `VLLM_TRACE_FUNCTION` | 函数级 trace 深度 | `vllm/envs.py:48`（默认 `0`） | 已确认，未试用 |
 | torch profiler | 引擎迭代级性能剖析 | `vllm/config/profiler.py:49`，经服务参数 `--profiler torch` + `--torch-profiler-dir` 配置 | 已确认定义，未试用 |
 | Prometheus 指标注册 | `/metrics` 各指标来源 | 调度侧 `scheduler.py:2676-2712`；曝写层 `vllm/v1/metrics/loggers.py`（全部指标定义 :494-:1066；preemption 链 stats.py:524-525 → loggers.py:1191-1192） | 已验证 |
-| phase3 悬案：abort counter 无效 | abort 的三条路径 | `loggers.py:713-725`（abort label 预建但恒 0）；`output_processor.py:526-547`（本地 abort 绕过统计）、`:655`（迟到输出丢弃） | 已验证——详见 [notes/04](notes/04-api-and-metrics.md) |
+| phase3 悬案：abort counter 无效 | abort 的三条路径 | `loggers.py:713-725`（abort label 预建但恒 0）、`:1221-1224`（唯一自增点）；`output_processor.py:526-547`（本地 abort 绕过统计）、`:654-656`（迟到输出丢弃）、`:741`（正常 finish 才统计） | 已验证——详见 [notes/04](notes/04-api-and-metrics.md)；2026-10-07 已回填 phase3 过载报告 |
 
 注：早期版本的 `VLLM_TRACE_ENABLED`（Perfetto 引擎 trace）在 v0.29.0 中已不存在（全仓库 grep 无结果）；迭代级剖析走 `vllm/config/profiler.py` 定义的 profiler 配置。

@@ -11,7 +11,7 @@
 - [KV Cache 与 Preemption 对照](results/kv_pressure_comparison_20260923.md)：正常 KV 池下 3/3 批次无抢占；受控缩小到 1024 blocks 后 3/3 批次各发生 1 次抢占，并稳定出现单请求约 3 秒流式停顿。两组均 24/24 成功，没有制造 OOM。
 - [Token Budget 与 Chunked Prefill](results/token_budget_comparison_20260923.md)：512/4096 × short/long/mixed 均完成 3 次正式重复；long/512 出现 token-budget capacity Waiting，而输出吞吐量并不随 budget 单调增加。
 - [正规 Benchmark 与容量曲线](results/benchmark_capacity_curve_20260923.md)：分别测量 closed-loop 并发与 open-loop 到达率，并用预先声明的 TTFT/E2E SLO 计算 Goodput。
-- [过载、取消与恢复](results/overload_recovery_20260923.md)：10 req/s 冲击下 Waiting 峰值 21、KV 仅 1.55%、无抢占；客户端超时/取消后服务恢复，但 abort counter 未提供有效证据。
+- [过载、取消与恢复](results/overload_recovery_20260923.md)：10 req/s 冲击下 Waiting 峰值 21、KV 仅 1.55%、无抢占；客户端超时/取消后服务恢复，但 abort counter 未提供有效证据——已定位源码机制（客户端取消绕过统计，见报告回填）。
 
 配套笔记：[Token Budget](learning_notes/02-token-budget-performance.md) · [KV/Preemption](learning_notes/03-kv-cache-preemption.md) · [Benchmark 方法](learning_notes/04-benchmark-methodology.md) · [过载与运维边界](learning_notes/05-overload-operations.md)。
 
