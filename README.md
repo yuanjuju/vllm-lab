@@ -63,7 +63,7 @@ flowchart LR
 
 **环境与解释范围：** 上述 CUDA 实验使用 Qwen3-8B BF16、vLLM 0.29.0、单张 RTX 4090（实验实例报告 49140 MiB），客户端通过 Mac → SSH 链路访问。客户端延迟包含网络与缓冲；短批次、少量重复的实验结果用于解释机制和筛选候选配置，尚不足以给出生产稳定 QPS。
 
-另有 [Mac Metal 基线](phase2/README.md) 与 [云端首次调用及基线](phase3/results/cloud_baseline.md)。两端的模型、输入与链路不同，不作硬件性能横向排名。机制结论已逐条对齐到 vLLM v0.29.0 源码（[Phase 4](phase4/README.md)），单变量特性对照实验见 [Phase 5](phase5/README.md)。
+另有 [Mac Metal 基线](phase2/README.md) 与 [云端首次调用及基线](phase3/results/cloud_baseline.md)。两端的模型、输入与链路不同，不作硬件性能横向排名。机制结论已逐条对齐到 vLLM v0.29.0 源码（[Phase 4](phase4/README.md)），单变量特性对照实验见 [Phase 5](phase5/README.md)；项目状态、路线图与接手约定见 [AGENTS.md](AGENTS.md)。
 
 ## Instrumentation & Measurement Model
 
