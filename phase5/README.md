@@ -7,7 +7,7 @@ Phase 4 读完源码后，回到 GPU 实例做"一次只动一个特性开关"�
 | # | 特性 | 状态 | 报告 |
 | --- | --- | --- | --- |
 | 1 | `--enforce-eager` vs CUDA graph + torch.compile | ✅ 2026-09-29 | [eager_vs_cudagraph](results/eager_vs_cudagraph_20260929.md) |
-| 2 | prefix cache 开/关（`--no-enable-prefix-caching`） | 待做 | — |
+| 2 | prefix cache 开/关（`--no-enable-prefix-caching`） | v0.29.0 正式实验待做；v0.18.0 探索对照已做 | [R570 探索性报告](results/prefix_cache_exploratory_r570_v018_20261008.md) |
 | 3 | KV cache dtype fp8（`--kv-cache-dtype fp8`） | 待做 | — |
 | 4 | 量化权重（如 GPTQ/AWQ 版模型） | 待做 | — |
 | 5 | 投机解码 | 待做 | — |
