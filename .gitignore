@@ -8,6 +8,7 @@ __pycache__/
 !phase3/results/kv_server_*.log
 !phase3/results/token_budget_server_*.log
 !phase3/results/prefix_cache_*_r570_v018_*.log
+!phase3/results/kv_dtype_*_r570_v018_*.log
 .env
 .env.*
 *.pem
