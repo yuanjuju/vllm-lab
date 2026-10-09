@@ -19,16 +19,16 @@
 | 本仓库 | 客户端脚本（仅标准库）、实验数据、报告、笔记 |
 | `../vllm-src` | vLLM v0.29.0 完整源码克隆（**行号一律以此为准**） |
 | 云端实例 | 按量计费单卡 RTX 4090。接入方式（SSH 地址/端口/一次性密码）由用户现场提供，**绝不写入仓库**。启动协议见 `phase3/README.md`。实例内 `/root/fsas/vllm-lab/` 含模型 Qwen3-8B 与 `.venv`；服务日志写该目录的 `logs/` |
-| 本地 Mac | Apple Silicon；Metal 版 vllm 0.29.0 在 `../.venv/lib/python3.12/site-packages/vllm/`（可 grep 快速定位，不含 docs/tests） |
+| 本地 Mac | Apple Silicon；Metal 版 vllm 0.29.0 在本仓库 `.venv/lib/python3.12/site-packages/vllm/`（可 grep 快速定位，不含 docs/tests） |
 
-## 三、当前状态（2026-10-07）
+## 三、当前状态（2026-10-09）
 
 | 阶段 | 状态 | 证据 / 产出 |
 | --- | --- | --- |
 | Phase 2 Mac/Metal 基线 | ✅ 完成 | `phase2/`（生成参数、流式、并发初探） |
-| Phase 3 云端黑盒刻画 | ✅ 完成（8 组实验） | `phase3/results/`（127 文件）+ `phase3/learning_notes/`（5 篇） |
+| Phase 3 云端黑盒刻画 | ✅ 完成（8 组实验） | `phase3/results/`（含后续 Phase 5 原始数据）+ `phase3/learning_notes/`（5 篇） |
 | Phase 4 源码对齐 v0.29.0 | ✅ 主干收官 | `phase4/notes/`（4 篇）+ `phase4/source-map.md`（现象→代码位置对照表） |
-| Phase 5 特性对照实验 | ✅ **v0.29.0 正式实验 5/5 + 开环容量网格**（另有 4 项 R570/v0.18.0 探索对照） | `phase5/results/`；完成记录与未竟事项见 `v029_pause_checkpoint_20261009.md`，版本边界见 `phase5/README.md` |
+| Phase 5 特性对照实验 | ✅ **v0.29.0 正式实验 5/5 + 开环容量网格 + baseline 低速率 SLO 补测**（另有 4 项 R570/v0.18.0 探索对照） | `phase5/results/`；补测见 `capacity_slo_cliff_v029_20261009.md`，版本边界见 `phase5/README.md` |
 
 ## 四、已确立的核心结论（勿重复推导，可直接引用）
 
@@ -38,17 +38,17 @@
 4. **abort counter 恒为 0 是设计如此**：客户端取消绕过统计（六环证据链见 `phase3/results/overload_recovery_20260923.md` 回填节 + `phase4/notes/04-api-and-metrics.md`）。
 5. **CUDA graph 省的是 CPU 端 kernel 启动**：eager 每步 decode +4.5ms 常数（batch 1→8 不变）、吞吐 −16~18%、TTFT 持平、引擎初始化 132.7s vs 20.6s；`--enforce-eager` 同时关 torch.compile（`vllm/config/vllm.py:1370-1375`）。详见 phase5 #1 报告。
 6. **每 token KV 字节数可直接算，且与实测逐数吻合**：字节 = 2(K,V) × 层数 × KV 头数 × head_dim × dtype 字节。Qwen3-8B 为 36 层 / 8 头 / 128 dim → BF16 **147,456 B**、FP8 **73,728 B**。`--kv-cache-memory-bytes 4G` 下实测 29,120 / 58,240 tokens，正好是「4 GiB ÷ 每 token 字节数后向下取整到 16-token 块」。**注意 `kv_cache_memory_bytes` 会跳过显存 profiling 且不遵守 `gpu_memory_utilization`**（`vllm/v1/worker/gpu_worker.py:544` 的日志明示），故该组对照中 `gpu-memory-utilization=0.75` 对 KV 池不起作用。
-7. **投机解码几乎不改每步成本，只改每步吐多少 token**：0.29.0 实测各配置每步 21.3–23.8 ms（最大偏离 +7.5%），而每步 token 数从 1.00 升到 4.92（repeat）或 1.24（count）；**解码加速比 ≈ 平均接受长度**。另：投机下 **SSE 内容事件 = 引擎步**（事件数 = 输出 token 数 − 接受 token 数，已逐数核对），故事件时间戳可直接当步级计时器。详见 phase5 #5 报告。
-8. **容量判断必须用 SLO goodput，不能只看吞吐**：1.6 req/s 下 baseline 原始吞吐是 ngram 的 86%（330 vs 385 tok/s），但 SLO goodput 只有 **1/7**（0.215 vs 1.505 req/s）。饱和有三个可独立观测的指纹：排队顶到 `max_num_seqs` 上限、到达结束后留下长排空（14.4 s vs 3.7 s）、达成吞吐与到达率脱钩。闭环测试自带背压，**永远不会暴露容量边界**。
+7. **本组投机收益主要来自每步多吐 token**：0.29.0 实测各配置每步 21.3–23.8 ms（最大偏离 +7.5%），每步 token 数从 1.00 升到 4.92（repeat）或 1.24（count）；在本负载下，**解码加速比接近平均接受长度**。投机组 SSE 内容事件数与推算步数逐数吻合，可用于本次步级近似分析；这不是 SSE API 对所有配置的保证。详见 phase5 #5 报告。
+8. **容量判断必须用 SLO goodput，不能只看吞吐**：1.6 req/s 下 baseline 原始吞吐是 ngram 的 86%（330 vs 385 tok/s），但 SLO goodput 只有 **1/7**（0.215 vs 1.505 req/s）。本轮同时观测到 Running 达上限、Waiting 累积、到达结束后仍需 14.4 s 排空。单个闭环并发点不能代替开环到达率—SLO 扫描。
 
 ## 五、下一步（按优先级）
 
-**B1–B5 与容量网格已于 2026-10-09 全部完成**（vLLM 0.29.0 / 驱动 590.44.01）。结论见 `phase5/README.md`，未竟事项见 `phase5/results/v029_pause_checkpoint_20261009.md`。当前优先级最高的遗留项：
+**B1–B5、容量网格及 A1 低速率 SLO 补测已于 2026-10-09 完成**（vLLM 0.29.0 / 驱动 590.44.01）。结论见 `phase5/README.md`；A1 的新节点环境和原始证据见 `phase5/results/capacity_slo_cliff_v029_20261009.md`。当前优先级最高的遗留项：
 
-**A1：定位 baseline 的 SLO 悬崖（容量网格的最低档设得太高）**
+**A1：定位 baseline 的 SLO 悬崖——已完成**
 
-- 已知 baseline 容量 ≈1.29 req/s，而网格最低档是 1.6 req/s，因此只知"< 1.6"。需补跑 **0.6 / 1.0 / 1.4 req/s** 才能画出 SLO 达标率随到达率的曲线
-- 用同一 `spec_ngram_open_loop_exploratory.py` 与同一 50:50 形状，换 experiment-id；环境须先复核（0.29.0 / R590 / 同一张卡），否则重跑控制组
+- 新节点单独重跑 **0.6 / 1.0 / 1.2 / 1.4 / 1.6 req/s**，每档 3 次 60 秒正式轮；0.6–1.2 档均逐请求达标，1.4 档开始有少量 TTFT >1 秒，1.6 档持续排队。按预注册严格 SLO，本次网格最高通过档为 1.2 req/s，失效区间为 (1.2, 1.4]；不是长期稳定容量承诺
+- 同一节点各轮 preemption 增量 0、KV 峰值 <3%，说明此轮 Waiting 不是 KV 抢占。详见 [A1 报告](phase5/results/capacity_slo_cliff_v029_20261009.md)
 
 **A2：AWQ 在默认模式（CUDA Graph + torch.compile）下是否反超**
 

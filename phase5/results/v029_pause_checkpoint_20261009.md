@@ -11,10 +11,10 @@
 | B1 | Prefix Cache 关闭 vs 开启 | TTFT P50 0.5628 → 0.0946 s（−83.2%），吞吐 +38.3%，命中率 97.96% | [prefix_cache_v029_20261009.md](prefix_cache_v029_20261009.md) |
 | B3 | KV dtype auto(BF16) vs FP8（同为 4 GiB 池） | 池容量 29,120 → 58,240 tokens（×2），吞吐 +3.8%，ITL −6.4%，质量 6/6 逐字节相同 | [kv_dtype_v029_20261009.md](kv_dtype_v029_20261009.md) |
 | B4 | BF16 vs AWQ 4-bit 权重 | 权重 15.27 → 5.71 GiB，KV 池 +48.4%；但吞吐 **−6.0%**，与 R570/v0.18.0 方向相反 | [weight_awq_v029_20261009.md](weight_awq_v029_20261009.md) |
-| B5 | 无投机 vs N-gram 投机（4 草稿） | 收益完全由接受长度决定：repeat 形状接受长度 5.000 → 快 4.9–5.0×；count 形状 1.24 → 快 1.24×；输出 72/72 逐字节相同 | [spec_ngram_v029_20261009.md](spec_ngram_v029_20261009.md) |
-| B6 | 开环容量网格（baseline vs ngram，1.6/1.8/2.0 req/s） | baseline 在 1.6 req/s 已饱和（容量 ≈1.29 req/s，goodput 0.215 req/s）；ngram 在 2.0 req/s 零排队（goodput 1.87 req/s，**7 倍**）；1.8 档 baseline 触发安全停止 | [capacity_open_loop_v029_20261009.md](capacity_open_loop_v029_20261009.md) |
+| B5 | 无投机 vs N-gram 投机（4 草稿） | 本组收益主要由接受长度解释：repeat 形状接受长度 5.000 → 快 4.9–5.0×；count 形状 1.24 → 快 1.24×；输出 72/72 逐字节相同 | [spec_ngram_v029_20261009.md](spec_ngram_v029_20261009.md) |
+| B6 | 开环容量网格（baseline vs ngram，1.6/1.8/2.0 req/s） | baseline 在 1.6 req/s 已过载（该窗口完成速率约 1.29 req/s）；**同一 1.6 档** SLO goodput 为 0.215 vs 1.505 req/s（约 7 倍）。ngram 在 2.0 req/s 仍零排队；1.8 档 baseline 触发安全停止 | [capacity_open_loop_v029_20261009.md](capacity_open_loop_v029_20261009.md) |
 
-以上均已是**正式 A/B 收益结论**（各 3 次正式轮中位数），不再是单边基线。
+上表 B1/B3/B4/B5 是正式 A/B 对照（各 3 次正式轮中位数）；B6 是独立的开环容量网格，其中 baseline 1.8 档因安全停止不具备 3 次完整正式轮。
 
 ## 已核验环境
 
@@ -31,13 +31,13 @@
 - 协议中"若 FP8 日志提示使用未校准的 1.0 scale，质量结论必须按该限制解释"：已在 [KV dtype 报告](kv_dtype_v029_20261009.md)第 3 节落实——0.29.0 已无 `--calculate-kv-scales`，缩放确为未校准的 `1.0`，报告据此拒绝做出"FP8 普遍无损"的结论。
 - 每组结束均停服务并核对显存；全部结束后 `nvidia-smi` 为 **0 MiB、0%**，无 vLLM serve/EngineCore 残留进程。
 
-## 尚未完成、留待后续
+## 后续补测与剩余事项
 
-1. **baseline 的 SLO 悬崖未定位**：网格最低档 1.6 req/s 已超过其容量（≈1.29 req/s），故只知道"< 1.6"。要定位需补跑 0.6 / 1.0 / 1.4 档。
-2. **ngram 的容量上限未测到**：2.0 req/s 零排队，报告中的 ≈3.1 req/s 是用闭环 8 并发数据做的外推，不是实测点。
+1. **baseline 的 SLO 悬崖已于同日另起新节点补测**：0.6 / 1.0 / 1.2 / 1.4 / 1.6 req/s 各有 3 次正式轮；按逐请求示例 SLO，最高通过的已测试速率是 1.2，失效区间为 (1.2, 1.4] req/s。见[独立报告](capacity_slo_cliff_v029_20261009.md)，不与本页旧节点数据作严格配对。
+2. **ngram 的容量上限未测到**：2.0 req/s 零排队；闭环同质负载吞吐不能推导本混合开环负载的稳定最大 req/s。
 3. **AWQ 在默认模式（CUDA Graph + torch.compile）下是否反超**：本组全部在 `--enforce-eager` 下完成，而这正是最可能翻转 AWQ 结论的口径。
 4. **FP8 KV 的质量外推**：现有 6 题（含 2 条 3096-token 回忆）不足以外推到长文生成或整体质量。
-5. **`max_num_batched_tokens` 与投机槽位的冲突未调优**：服务端有明确警告，ngram 的收益数字很可能是偏低的下界。
+5. **`max_num_batched_tokens` 与投机槽位的冲突未调优**：服务端有明确警告；改变 token budget 后收益如何变化仍需单变量实测。
 
 ## 清理状态
 
