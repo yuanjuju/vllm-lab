@@ -248,6 +248,7 @@ def main():
     parser.add_argument("--output-tokens", type=int, default=256)
     parser.add_argument("--formal-repetitions", type=int, default=3)
     parser.add_argument("--poll-interval", type=float, default=0.1)
+    parser.add_argument("--server-profile", default="r570-vllm018-qwen3-8b-bf16-eager-prefix-off")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", args.experiment_id):
@@ -290,7 +291,7 @@ def main():
         "condition": args.condition,
         "model": MODEL, "base_url": base_url,
         "transport": "cloud-local loopback",
-        "server_profile": "r570-vllm018-qwen3-8b-bf16-eager-prefix-off",
+        "server_profile": args.server_profile,
         "speculative_config_expected": ({
             "method": "ngram", "num_speculative_tokens": 4,
             "prompt_lookup_min": 1, "prompt_lookup_max": 4,

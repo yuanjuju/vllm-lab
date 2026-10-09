@@ -229,19 +229,38 @@ def main():
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--poll-interval", type=float, default=.2)
     parser.add_argument("--max-drain-s", type=float, default=60)
+    parser.add_argument("--rates", default=",".join(str(rate) for rate in RATES),
+                        help="Comma-separated offered rates in requests/second")
+    parser.add_argument("--formal-duration-s", type=float, default=FORMAL_DURATION_S)
+    parser.add_argument("--warmup-duration-s", type=float, default=WARMUP_DURATION_S)
+    parser.add_argument("--formal-repetitions", type=int, default=3)
+    parser.add_argument("--server-profile", default="r570-vllm018-qwen3-8b-bf16-eager-prefix-off")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", args.experiment_id):
         parser.error("experiment-id must be 1-64 ASCII letters, digits, _ or -")
     if args.poll_interval <= 0 or args.max_drain_s <= 0:
         parser.error("poll interval and max drain must be positive")
+    try:
+        rates = tuple(float(piece) for piece in args.rates.split(","))
+    except ValueError:
+        parser.error("rates must be comma-separated numbers")
+    if (not rates or any(rate <= 0 for rate in rates)
+            or args.formal_duration_s <= 0 or args.warmup_duration_s <= 0
+            or args.formal_repetitions < 3):
+        parser.error("rates/durations must be positive and formal repetitions >= 3")
+    for rate in rates:
+        for duration in (args.formal_duration_s, args.warmup_duration_s):
+            count = rate * duration
+            if not math.isclose(count, round(count), abs_tol=1e-9) or round(count) % 2:
+                parser.error("each rate * duration must be an even integer for the 50:50 mix")
     if args.dry_run:
         print(json.dumps({
-            "rates_req_s": RATES,
-            "formal_duration_s": FORMAL_DURATION_S,
-            "warmup_duration_s": WARMUP_DURATION_S,
-            "formal_repetitions": 3,
-            "requests_per_formal_run": [round(r * FORMAL_DURATION_S) for r in RATES],
+            "rates_req_s": rates,
+            "formal_duration_s": args.formal_duration_s,
+            "warmup_duration_s": args.warmup_duration_s,
+            "formal_repetitions": args.formal_repetitions,
+            "requests_per_formal_run": [round(r * args.formal_duration_s) for r in rates],
             "mix": "alternating repeat/count, 50:50",
             "output_tokens": OUTPUT_TOKENS,
             "illustrative_slo": {"ttft_s": TTFT_SLO_S, "e2e_s": E2E_SLO_S},
@@ -262,12 +281,12 @@ def main():
         "model": MODEL,
         "base_url": base_url,
         "transport": "cloud-local loopback",
-        "server_profile": "r570-vllm018-qwen3-8b-bf16-eager-prefix-off",
+        "server_profile": args.server_profile,
         "arrival_process": "deterministic periodic open-loop; no client concurrency cap",
-        "rates_req_s": RATES,
-        "formal_duration_s": FORMAL_DURATION_S,
-        "warmup_duration_s": WARMUP_DURATION_S,
-        "formal_repetitions_planned": 3,
+        "rates_req_s": rates,
+        "formal_duration_s": args.formal_duration_s,
+        "warmup_duration_s": args.warmup_duration_s,
+        "formal_repetitions_planned": args.formal_repetitions,
         "mix": "alternating repeat/count, 50:50",
         "fixed_output_tokens": OUTPUT_TOKENS,
         "illustrative_slo": {"ttft_s": TTFT_SLO_S, "e2e_s": E2E_SLO_S},
@@ -279,10 +298,11 @@ def main():
     }
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     output = RESULTS_DIR / f"spec_ngram_open_loop_{args.experiment_id}_{args.condition}.json"
-    for rate in RATES:
+    for rate in rates:
         for label, duration_s in [
-            ("warmup", WARMUP_DURATION_S),
-            *[(f"formal-{i}", FORMAL_DURATION_S) for i in range(3)],
+            ("warmup", args.warmup_duration_s),
+            *[(f"formal-{i}", args.formal_duration_s)
+              for i in range(args.formal_repetitions)],
         ]:
             run = run_rate(base_url, args.experiment_id, rate, label,
                            duration_s, args.poll_interval, args.max_drain_s)

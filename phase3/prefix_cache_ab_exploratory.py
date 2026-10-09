@@ -142,13 +142,15 @@ def stream_request(base_url, prompt, request_id, output_tokens, gate):
                     if (choice.get("delta") or {}).get("content"):
                         content_times.append(round(time.perf_counter() - start, 6))
         elapsed = time.perf_counter() - start
-        ok = done and usage is not None and bool(content_times) and finish == "length"
+        ok = (done and usage is not None and bool(content_times)
+              and finish == "length"
+              and usage.get("completion_tokens") == output_tokens)
         return {"request_id": request_id, "ok": ok,
                 "duration_s": round(elapsed, 4),
                 "client_ttft_s": content_times[0] if content_times else None,
                 "content_event_times_s": content_times,
                 "usage": usage, "finish_reason": finish, "done": done,
-                "error": None if ok else "missing usage/content/DONE or unexpected finish"}
+                "error": None if ok else "incomplete stream or wrong output length"}
     except Exception as exc:
         return {"request_id": request_id, "ok": False,
                 "duration_s": round(time.perf_counter() - start, 4),
@@ -254,6 +256,8 @@ def main():
     parser.add_argument("--output-tokens", type=int, default=64)
     parser.add_argument("--formal-repetitions", type=int, default=3)
     parser.add_argument("--poll-interval", type=float, default=0.1)
+    parser.add_argument("--server-profile", default="unspecified",
+                        help="Recorded environment label; verify actual flags in startup log")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", args.experiment_id):
@@ -288,6 +292,7 @@ def main():
         "recorded_at_utc": datetime.now(timezone.utc).isoformat(),
         "experiment_id": args.experiment_id, "condition": args.condition,
         "model": MODEL, "base_url": base_url, "transport": "cloud-local loopback",
+        "server_profile": args.server_profile,
         "requests_per_burst": args.requests, "fixed_probe_output_tokens": args.output_tokens,
         "formal_repetitions": args.formal_repetitions,
         "warmup_excluded_from_formal": True,
