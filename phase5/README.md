@@ -9,12 +9,13 @@ Phase 4 读完源码后，回到 GPU 实例做"一次只动一个特性开关"�
 | 1 | `--enforce-eager` vs CUDA graph + torch.compile | ✅ 2026-09-29 | [eager_vs_cudagraph](results/eager_vs_cudagraph_20260929.md) |
 | 2 | prefix cache 开/关（`--no-enable-prefix-caching`） | v0.29.0 正式实验待做；v0.18.0 探索对照已做 | [R570 探索性报告](results/prefix_cache_exploratory_r570_v018_20261008.md) |
 | 3 | KV cache dtype fp8（`--kv-cache-dtype fp8`） | v0.29.0 正式实验待做；v0.18.0 探索对照已做 | [R570 KV dtype 报告](results/kv_dtype_exploratory_r570_v018_20261008.md) |
-| 4 | 量化权重（如 GPTQ/AWQ 版模型） | 待做 | — |
+| 4 | 量化权重（Qwen3-8B BF16 vs 官方 AWQ 4-bit） | v0.29.0 正式实验待做；v0.18.0/R570 探索对照已做 | [R570 权重量化报告](results/weight_awq_exploratory_r570_v018_20261009.md) |
 | 5 | 投机解码 | 待做 | — |
 
 ## 已完成实验的一句话结论
 
 1. **eager 每步 decode 多付 ~4.5 ms 的 kernel 启动开销**（batch 1→8 近似常数），吞吐 −16%~18%；TTFT 不受影响（prefill 摊薄启动成本），代价是引擎初始化 132.7 s vs 20.6 s。注意口径：`--enforce-eager` 同时关掉 torch.compile（`vllm/config/vllm.py:1370-1375`），差异是两项之和。
+2. **R570/v0.18.0 探索性 AWQ 对照**：在同一实例与相同 BF16 KV、长输入/固定输出负载下，模型加载显存 15.27→5.71 GiB，自动 KV 池 19.76→29.32 GiB；3 次正式轮输出吞吐中位数 189.550→204.312 tok/s（+7.8%）。质量 6/6 小题仅是冒烟检查；正式 v0.29.0 结论仍待补。
 
 ## 运行注意事项
 
