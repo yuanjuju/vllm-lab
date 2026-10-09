@@ -72,4 +72,4 @@ python3 phase3/kv_dtype_ab_exploratory.py --condition fp8 --experiment-id r570kv
 4. **质量只做了冒烟检验**：FP8 使用启动时动态 scales，没有代表性数据集校准。6/6 的小题结果不足以证明长文、领域任务或整体生成质量等价。后续若考虑实际部署，需要更大、事先固定的质量集。
 5. **版本与负载边界**：本实验为 vLLM 0.18.0 / R570 / eager / 关闭 Prefix Cache / 长输入固定输出，客户端在云端 loopback；不同驱动、版本、CUDA Graph、前缀复用或到达率下可能改变方向。每轮仅 8 个请求，P95 只是描述性分位值。
 
-收尾时两组服务均已停止，API 8000 端口不可达，`nvidia-smi` 显存回到约 2 MiB。**云平台实例关机与计费停止须由用户在控制台确认；停止 vLLM 不等于停止实例。**
+收尾时两组服务均已停止，API 8000 端口不可达，`nvidia-smi` 显存回到约 2 MiB。
