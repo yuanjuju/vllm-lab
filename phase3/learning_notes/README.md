@@ -9,4 +9,4 @@
 - [Benchmark 与 Goodput](04-benchmark-methodology.md)
 - [过载与单实例运维边界](05-overload-operations.md)
 
-配套证据在[结果目录](../results/)中。量化、Speculative Decoding 与 LoRA/SFT 尚未在这个仓库中做独立验证；等有对应实验和数据时再补笔记。
+配套证据在[结果目录](../results/)中。量化与 Speculative Decoding 已在 [Phase 5](../../phase5/README.md) 做独立实验并归档报告；本组五篇笔记聚焦 Phase 3 的调度、缓存、测量与运维机制。LoRA/SFT 尚未在本仓库做独立验证。

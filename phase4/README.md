@@ -5,7 +5,7 @@
 ## 源码副本
 
 - 完整仓库（含 docs / tests / csrc）：`../vllm-src`，克隆自 tag `v0.29.0`，与云端实验环境版本一致。
-- 本地 Metal 安装包：`../.venv/lib/python3.12/site-packages/vllm/`（同为 0.29.0，可用于快速 grep，但不含 docs 与测试）。
+- 本项目的本地 Metal 安装包：`.venv/lib/python3.12/site-packages/vllm/`（从仓库根目录定位；同为 0.29.0，可用于快速 grep，但不含 docs 与测试）。
 
 两者如有差异，以 `../vllm-src` 为准；笔记中的行号引用统一指向 `vllm-src`。
 
@@ -31,7 +31,7 @@
 - [note-template.md](note-template.md)：源码精读笔记模板；每读完一个模块，按模板在 `notes/` 下建一篇。
 - 已完成笔记（**Phase 4 主干收官**）：
   [01 Scheduler](notes/01-scheduler.md) · [02 GPU 执行路径](notes/02-gpu-model-runner.md) · [03 EngineCore](notes/03-engine-core.md) · [04 请求前半段与 metrics](notes/04-api-and-metrics.md)（含 abort counter 悬案的源码答案）。
-- 下一步：Phase 5 特性对照实验（`--enforce-eager`、prefix cache 开关、KV dtype、量化、spec decode）。
+- 后续 [Phase 5 特性对照实验](../phase5/README.md)已完成主干及 A1–A3 补测（`--enforce-eager`、prefix cache、KV dtype、量化、spec decode）；各结果的版本和容器边界以 Phase 5 报告为准。
 - 每条结论必须带 `文件路径 + 函数名`（建议带行号）；行号以 v0.29.0 为准，引用格式如 `vllm/v1/core/sched/scheduler.py:120`。
 
 ## 本阶段不做什么

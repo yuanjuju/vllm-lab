@@ -65,6 +65,8 @@ flowchart LR
 
 另有 [Mac Metal 基线](phase2/README.md) 与 [云端首次调用及基线](phase3/results/cloud_baseline.md)。两端的模型、输入与链路不同，不作硬件性能横向排名。机制结论已逐条对齐到 vLLM v0.29.0 源码（[Phase 4](phase4/README.md)），单变量特性对照实验见 [Phase 5](phase5/README.md)；项目状态、路线图与接手约定见 [AGENTS.md](AGENTS.md)。
 
+截至 2026-10-10，Phase 5 主干与后续 [A1 baseline SLO 边界](phase5/results/capacity_slo_cliff_v029_20261009.md)、[A2 默认模式 AWQ 对照](phase5/results/weight_awq_graph_v029_20261010.md)、[A3 N-gram SLO 边界](phase5/results/spec_ngram_capacity_boundary_v029_20261010.md)均已归档。A3 在本次 eager 合成负载下的最高通过已测档为 2.4 req/s、最低失败已测档为 2.6 req/s；这不是生产最大 QPS。
+
 ## Instrumentation & Measurement Model
 
 ### Request-level / Engine-level 分层观测
