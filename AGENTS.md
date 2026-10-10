@@ -1,6 +1,6 @@
 # AGENTS.md：项目交接与工作约定
 
-> 面向接手的 AI agent 或协作者。最后更新：2026-10-09。
+> 面向接手的 AI agent 或协作者。最后更新：2026-10-10。
 
 ## 一、项目是什么
 
@@ -28,7 +28,7 @@
 | Phase 2 Mac/Metal 基线 | ✅ 完成 | `phase2/`（生成参数、流式、并发初探） |
 | Phase 3 云端黑盒刻画 | ✅ 完成（8 组实验） | `phase3/results/`（含后续 Phase 5 原始数据）+ `phase3/learning_notes/`（5 篇） |
 | Phase 4 源码对齐 v0.29.0 | ✅ 主干收官 | `phase4/notes/`（4 篇）+ `phase4/source-map.md`（现象→代码位置对照表） |
-| Phase 5 特性对照实验 | ✅ **v0.29.0 正式实验 5/5 + 开环容量网格 + baseline 低速率 SLO 补测**（另有 4 项 R570/v0.18.0 探索对照） | `phase5/results/`；补测见 `capacity_slo_cliff_v029_20261009.md`，版本边界见 `phase5/README.md` |
+| Phase 5 特性对照实验 | ✅ **v0.29.0 正式实验 5/5 + 开环容量网格 + baseline 低速率 SLO 补测 + A2 默认模式 AWQ 对照**（另有 4 项 R570/v0.18.0 探索对照） | `phase5/results/`；A2 见 `weight_awq_graph_v029_20261010.md`，版本边界见 `phase5/README.md` |
 
 ## 四、已确立的核心结论（勿重复推导，可直接引用）
 
@@ -40,20 +40,21 @@
 6. **每 token KV 字节数可直接算，且与实测逐数吻合**：字节 = 2(K,V) × 层数 × KV 头数 × head_dim × dtype 字节。Qwen3-8B 为 36 层 / 8 头 / 128 dim → BF16 **147,456 B**、FP8 **73,728 B**。`--kv-cache-memory-bytes 4G` 下实测 29,120 / 58,240 tokens，正好是「4 GiB ÷ 每 token 字节数后向下取整到 16-token 块」。**注意 `kv_cache_memory_bytes` 会跳过显存 profiling 且不遵守 `gpu_memory_utilization`**（`vllm/v1/worker/gpu_worker.py:544` 的日志明示），故该组对照中 `gpu-memory-utilization=0.75` 对 KV 池不起作用。
 7. **本组投机收益主要来自每步多吐 token**：0.29.0 实测各配置每步 21.3–23.8 ms（最大偏离 +7.5%），每步 token 数从 1.00 升到 4.92（repeat）或 1.24（count）；在本负载下，**解码加速比接近平均接受长度**。投机组 SSE 内容事件数与推算步数逐数吻合，可用于本次步级近似分析；这不是 SSE API 对所有配置的保证。详见 phase5 #5 报告。
 8. **容量判断必须用 SLO goodput，不能只看吞吐**：1.6 req/s 下 baseline 原始吞吐是 ngram 的 86%（330 vs 385 tok/s），但 SLO goodput 只有 **1/7**（0.215 vs 1.505 req/s）。本轮同时观测到 Running 达上限、Waiting 累积、到达结束后仍需 14.4 s 排空。单个闭环并发点不能代替开环到达率—SLO 扫描。
+9. **AWQ 性能方向依赖执行模式与本次负载**：v0.29.0 的 eager 配对中 AWQ 吞吐 −6.0%；2026-10-10 同容器默认 torch.compile + CUDA Graph 配对中 AWQ **+40.96%**（272.364 vs 193.214 tok/s），ITL 28.3→17.3 ms。旧 eager 与新默认模式不是同容器四格配对，不能把方向翻转单独归因于 CUDA Graph、torch.compile 或某个 kernel。见 `phase5/results/weight_awq_graph_v029_20261010.md`。
 
 ## 五、下一步（按优先级）
 
-**B1–B5、容量网格及 A1 低速率 SLO 补测已于 2026-10-09 完成**（vLLM 0.29.0 / 驱动 590.44.01）。结论见 `phase5/README.md`；A1 的新节点环境和原始证据见 `phase5/results/capacity_slo_cliff_v029_20261009.md`。当前优先级最高的遗留项：
+**B1–B5、容量网格及 A1 低速率 SLO 补测已于 2026-10-09 完成，A2 默认模式 AWQ 对照已于 2026-10-10 完成**（vLLM 0.29.0 / 驱动 590.44.01）。结论见 `phase5/README.md`；A1 与 A2 的原始证据分别见 `phase5/results/capacity_slo_cliff_v029_20261009.md`、`phase5/results/weight_awq_graph_v029_20261010.md`。当前优先级最高的遗留项：
 
 **A1：定位 baseline 的 SLO 悬崖——已完成**
 
 - 新节点单独重跑 **0.6 / 1.0 / 1.2 / 1.4 / 1.6 req/s**，每档 3 次 60 秒正式轮；0.6–1.2 档均逐请求达标，1.4 档开始有少量 TTFT >1 秒，1.6 档持续排队。按预注册严格 SLO，本次网格最高通过档为 1.2 req/s，失效区间为 (1.2, 1.4]；不是长期稳定容量承诺
 - 同一节点各轮 preemption 增量 0、KV 峰值 <3%，说明此轮 Waiting 不是 KV 抢占。详见 [A1 报告](phase5/results/capacity_slo_cliff_v029_20261009.md)
 
-**A2：AWQ 在默认模式（CUDA Graph + torch.compile）下是否反超**
+**A2：AWQ 在默认模式（CUDA Graph + torch.compile）下是否反超——已完成**
 
-- 现有 AWQ 对照全部在 `--enforce-eager` 下完成，而 eager 正是最可能压制/放大反量化 kernel 差异的口径；本组结论（−6.0%）与 R570/v0.18.0（+7.8%）方向相反，跨版本不可互推
-- 去掉 `--enforce-eager` 重跑 `base` 与 `awq` 两组即可；注意默认模式下引擎初始化更慢（见 Phase 5 #1）
+- 同一容器、同一负载、默认执行模式下，AWQ 相对 BF16 的吞吐中位数 **+40.96%**，与旧 eager 配对的 −6.0% 方向相反；默认模式的两组日志均确认 torch.compile 与 CUDA Graph 捕获
+- 旧 eager 与新默认模式不是严格四格配对，不能拆分 CUDA Graph 和 torch.compile 各自的贡献；若要定位具体原因，应另立同节点执行模式实验
 
 **A3：ngram 的容量上限与调参**
 
