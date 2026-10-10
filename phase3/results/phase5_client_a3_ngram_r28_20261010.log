@@ -1,0 +1,5 @@
+{"rate": 2.8, "label": "warmup", "success": 28, "dispatched": 28, "ttft_p95_s": 0.6956, "e2e_p95_s": 5.2424, "slo_good_fraction": 1.0, "waiting_peak": 2.0, "kv_peak": 0.019397993311036754, "preemptions": 0.0, "safety_stop": null}
+{"rate": 2.8, "label": "formal-0", "success": 168, "dispatched": 168, "ttft_p95_s": 4.8716, "e2e_p95_s": 9.5191, "slo_good_fraction": 0.2202, "waiting_peak": 14.0, "kv_peak": 0.02062430323299891, "preemptions": 0.0, "safety_stop": null}
+{"rate": 2.8, "label": "formal-1", "success": 168, "dispatched": 168, "ttft_p95_s": 5.3353, "e2e_p95_s": 9.9665, "slo_good_fraction": 0.1964, "waiting_peak": 15.0, "kv_peak": 0.020847268673355623, "preemptions": 0.0, "safety_stop": null}
+{"rate": 2.8, "label": "formal-2", "success": 168, "dispatched": 168, "ttft_p95_s": 4.8356, "e2e_p95_s": 9.4663, "slo_good_fraction": 0.2024, "waiting_peak": 14.0, "kv_peak": 0.020847268673355623, "preemptions": 0.0, "safety_stop": null}
+Saved: /root/fsas/vllm-lab/phase3/v029_clients/results/spec_ngram_open_loop_v029a3_20261010_r28_ngram.json
