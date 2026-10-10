@@ -10,15 +10,17 @@ Phase 4 读完源码后，回到 GPU 实例做"一次只动一个特性开关"�
 | 2 | prefix cache 开/关（`--no-enable-prefix-caching`） | ✅ v0.29.0 正式实验 2026-10-09（另含 v0.18.0 探索对照） | [v0.29.0 正式报告](results/prefix_cache_v029_20261009.md) · [R570 探索性报告](results/prefix_cache_exploratory_r570_v018_20261008.md) |
 | 3 | KV cache dtype fp8（`--kv-cache-dtype fp8`） | ✅ v0.29.0 正式实验 2026-10-09（另含 v0.18.0 探索对照） | [v0.29.0 正式报告](results/kv_dtype_v029_20261009.md) · [R570 KV dtype 报告](results/kv_dtype_exploratory_r570_v018_20261008.md) |
 | 4 | 量化权重（Qwen3-8B BF16 vs 官方 AWQ 4-bit） | ✅ v0.29.0 正式实验 2026-10-09（另含 v0.18.0/R570 探索对照） | [v0.29.0 正式报告](results/weight_awq_v029_20261009.md) · [R570 权重量化报告](results/weight_awq_exploratory_r570_v018_20261009.md) |
-| 5 | N-gram 投机解码 | ✅ v0.29.0 正式实验 2026-10-09（另含 v0.18.0/R570 同质、混合批次及固定到达率探索对照） | [v0.29.0 正式报告](results/spec_ngram_v029_20261009.md) · [v0.29.0 容量网格](results/capacity_open_loop_v029_20261009.md) · [R570 同质负载](results/spec_ngram_exploratory_r570_v018_20261009.md) · [R570 混合批次](results/spec_ngram_mixed_exploratory_r570_v018_20261009.md) · [R570 固定到达率](results/spec_ngram_open_loop_exploratory_r570_v018_20261009.md) |
+| 5 | N-gram 投机解码 | ✅ v0.29.0 正式实验及 A3 开环 SLO 边界补测（另含 v0.18.0/R570 探索对照） | [v0.29.0 正式报告](results/spec_ngram_v029_20261009.md) · [v0.29.0 容量网格](results/capacity_open_loop_v029_20261009.md) · [A3 容量边界](results/spec_ngram_capacity_boundary_v029_20261010.md) · [R570 同质负载](results/spec_ngram_exploratory_r570_v018_20261009.md) · [R570 混合批次](results/spec_ngram_mixed_exploratory_r570_v018_20261009.md) · [R570 固定到达率](results/spec_ngram_open_loop_exploratory_r570_v018_20261009.md) |
 
 > 2026-10-09 的 v0.29.0 复核按[预注册协议](results/v029_feature_capacity_protocol_20261009.md)全部完成，4 组单变量配对 + 开环容量网格均已执行；随后按[补测协议](results/capacity_slo_cliff_protocol_20261009.md)完成了 [baseline 低速率 SLO 悬崖补测](results/capacity_slo_cliff_v029_20261009.md)。环境与原先未竟事项见[完成记录](results/v029_pause_checkpoint_20261009.md)。
 
 > 2026-10-10 又按[A2 预注册协议](results/weight_awq_graph_protocol_20261010.md)完成了[默认 torch.compile + CUDA Graph 下 BF16/AWQ 配对](results/weight_awq_graph_v029_20261010.md)。
 
+> 2026-10-10 按[A3 预注册协议](results/spec_ngram_capacity_boundary_protocol_20261010.md)完成了[N-gram 开环 SLO 容量边界补测](results/spec_ngram_capacity_boundary_v029_20261010.md)。本轮是新容器的独立扫描，仍用 eager，不能把 A1/A2 不同容器数字当严格配对。
+
 ## 已完成实验的一句话结论
 
-> 第 1 条为 2026-09-29 的 vLLM 0.29.0 正式实验；第 2–5 条为 R570/v0.18.0 探索性对照；**第 6–11 条为 2026-10-09 的 vLLM 0.29.0 / 驱动 590.44.01 实验**，其中第 11 条在另一个容器独立补测；第 12 条是 2026-10-10 的默认模式 AWQ 对照。跨版本和跨节点数字**不得拼作严格配对**。
+> 第 1 条为 2026-09-29 的 vLLM 0.29.0 正式实验；第 2–5 条为 R570/v0.18.0 探索性对照；**第 6–11 条为 2026-10-09 的 vLLM 0.29.0 / 驱动 590.44.01 实验**，其中第 11 条在另一个容器独立补测；第 12–13 条是 2026-10-10 的 A2/A3 独立实验。跨版本和跨节点数字**不得拼作严格配对**。
 
 1. **eager 每步 decode 多付 ~4.5 ms 的 kernel 启动开销**（batch 1→8 近似常数），吞吐 −16%~18%；TTFT 不受影响（prefill 摊薄启动成本），代价是引擎初始化 132.7 s vs 20.6 s。注意口径：`--enforce-eager` 同时关掉 torch.compile（`vllm/config/vllm.py:1370-1375`），差异是两项之和。
 2. **R570/v0.18.0 探索性 AWQ 对照**：在同一实例与相同 BF16 KV、长输入/固定输出负载下，模型加载显存 15.27→5.71 GiB，自动 KV 池 19.76→29.32 GiB；3 次正式轮输出吞吐中位数 189.550→204.312 tok/s（+7.8%）。质量 6/6 小题仅是冒烟检查；另见第 8 条独立完成的 v0.29.0 对照，两版结果不可合并。
@@ -32,6 +34,7 @@ Phase 4 读完源码后，回到 GPU 实例做"一次只动一个特性开关"�
 10. **v0.29.0 · 开环容量**：baseline 在 **1.6 req/s 已过载**（该窗口连同排空时间的完成速率约 1.29 req/s；排队峰值 14、到达结束后仍需 14.4 s 排空）。1.6 req/s 下 SLO goodput **0.215 vs 1.505 req/s（7 倍）**，TTFT P95 **9.4331 vs 0.0951 s**。ngram 在 2.0 req/s 零排队，容量上限未测到。1.8 档 baseline 因 Waiting 17 触发安全停止；原报告缺失的低速率档已由第 11 条补测。
 11. **v0.29.0 · baseline SLO 悬崖补测（新节点）**：0.6/1.0/1.2 req/s 三次正式轮均满足示例逐请求 SLO；1.4 档整体 TTFT P95 虽仍 <1 秒，但每轮有 2–4 条请求 TTFT 超标；1.6 档 TTFT P95 约 9 秒、Waiting 峰值 13，KV 峰值仅约 2.7%、preemption 增量 0。按本次严格判据，最高通过的**已测试**速率为 1.2 req/s，失效区间在 (1.2, 1.4]；不是长期最大 QPS。详见[报告](results/capacity_slo_cliff_v029_20261009.md)。
 12. **v0.29.0 · 默认模式 AWQ 对照（A2）**：同一容器、相同 8 请求突发负载下，BF16/AWQ 的吞吐中位数为 193.214/272.364 tok/s，AWQ **+40.96%**，服务端 ITL 均值中位数 28.3→17.3 ms；两组均确认 torch.compile 与 CUDA Graph 捕获。与旧 eager −6.0% 方向相反，但旧 eager 与本轮不是同容器四格配对，不能单独归因于 Graph 或编译。详见[报告](results/weight_awq_graph_v029_20261010.md)。
+13. **v0.29.0 · N-gram SLO 容量边界（A3）**：本容器 50:50 合成负载、3 × 60 秒窗口下，**2.4 req/s 是最高通过的已测档，2.6 req/s 是最低失败的已测档**；2.6 三轮有 1、20、44 条 TTFT >1 s，2.8 的 Waiting 峰值达 15。各档 KV 峰值 ≤2.1%、抢占增量 0；输出吞吐随投递速率仍升，但 2.8 的 SLO goodput 中位数降到 0.4918 req/s。详见[报告](results/spec_ngram_capacity_boundary_v029_20261010.md)。
 
 ## 运行注意事项
 

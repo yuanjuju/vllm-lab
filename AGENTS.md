@@ -21,7 +21,7 @@
 | 云端实例 | 按量计费单卡 RTX 4090。接入方式（SSH 地址/端口/一次性密码）由用户现场提供，**绝不写入仓库**。启动协议见 `phase3/README.md`。实例内 `/root/fsas/vllm-lab/` 含模型 Qwen3-8B 与 `.venv`；服务日志写该目录的 `logs/` |
 | 本地 Mac | Apple Silicon；Metal 版 vllm 0.29.0 在本仓库 `.venv/lib/python3.12/site-packages/vllm/`（可 grep 快速定位，不含 docs/tests） |
 
-**云端状态快照（2026-10-10 A2 收尾）**：控制台中实例 `positive-cedar-1105` 显示“已关机 / 不计费”；关机提示称实例保留 3 天，之后自动删除。下一次云端实验前重新核对实例是否仍在、共享盘数据、SSH、GPU 与项目环境，不沿用本轮一次性密码。
+**云端状态快照（2026-10-10 A3 收尾）**：A3 后已通过 SSH 停止 vLLM，`/health` 关闭，GPU 显存 0 MiB。**云平台实例是否关机、是否继续计费尚未在控制台确认**；不能把“服务已停”当作“实例已关机”。A2 曾在控制台确认关机，但 A3 前实例已再次开机；下一次云端实验前重新核对实例、共享盘、SSH、GPU 与项目环境。密码不在仓库记录。
 
 ## 三、当前状态（2026-10-10）
 
@@ -30,7 +30,7 @@
 | Phase 2 Mac/Metal 基线 | ✅ 完成 | `phase2/`（生成参数、流式、并发初探） |
 | Phase 3 云端黑盒刻画 | ✅ 完成（8 组实验） | `phase3/results/`（含后续 Phase 5 原始数据）+ `phase3/learning_notes/`（5 篇） |
 | Phase 4 源码对齐 v0.29.0 | ✅ 主干收官 | `phase4/notes/`（4 篇）+ `phase4/source-map.md`（现象→代码位置对照表） |
-| Phase 5 特性对照实验 | ✅ **v0.29.0 正式实验 5/5 + 开环容量网格 + baseline 低速率 SLO 补测 + A2 默认模式 AWQ 对照**（另有 4 项 R570/v0.18.0 探索对照） | `phase5/results/`；A2 见 `weight_awq_graph_v029_20261010.md`，版本边界见 `phase5/README.md` |
+| Phase 5 特性对照实验 | ✅ **v0.29.0 正式实验 5/5 + 开环容量网格 + A1 baseline SLO 补测 + A2 默认模式 AWQ 对照 + A3 N-gram SLO 边界补测**（另有 4 项 R570/v0.18.0 探索对照） | `phase5/results/`；A3 见 `spec_ngram_capacity_boundary_v029_20261010.md`，版本边界见 `phase5/README.md` |
 
 ## 四、已确立的核心结论（勿重复推导，可直接引用）
 
@@ -43,10 +43,11 @@
 7. **本组投机收益主要来自每步多吐 token**：0.29.0 实测各配置每步 21.3–23.8 ms（最大偏离 +7.5%），每步 token 数从 1.00 升到 4.92（repeat）或 1.24（count）；在本负载下，**解码加速比接近平均接受长度**。投机组 SSE 内容事件数与推算步数逐数吻合，可用于本次步级近似分析；这不是 SSE API 对所有配置的保证。详见 phase5 #5 报告。
 8. **容量判断必须用 SLO goodput，不能只看吞吐**：1.6 req/s 下 baseline 原始吞吐是 ngram 的 86%（330 vs 385 tok/s），但 SLO goodput 只有 **1/7**（0.215 vs 1.505 req/s）。本轮同时观测到 Running 达上限、Waiting 累积、到达结束后仍需 14.4 s 排空。单个闭环并发点不能代替开环到达率—SLO 扫描。
 9. **AWQ 性能方向依赖执行模式与本次负载**：v0.29.0 的 eager 配对中 AWQ 吞吐 −6.0%；2026-10-10 同容器默认 torch.compile + CUDA Graph 配对中 AWQ **+40.96%**（272.364 vs 193.214 tok/s），ITL 28.3→17.3 ms。旧 eager 与新默认模式不是同容器四格配对，不能把方向翻转单独归因于 CUDA Graph、torch.compile 或某个 kernel。见 `phase5/results/weight_awq_graph_v029_20261010.md`。
+10. **A3 N-gram SLO 边界已测到**：本容器的 eager、50:50 合成开环负载中，2.4 req/s 三轮逐请求全达标，2.6 req/s 三轮分别有 1、20、44 条 TTFT 超标；2.8 req/s 排队峰值 15。KV 峰值 ≤2.1%、抢占增量 0，不能把 Waiting 归因于 KV 抢占。此处仅是 3 × 60 秒的已测边界，见 `phase5/results/spec_ngram_capacity_boundary_v029_20261010.md`。
 
 ## 五、下一步（按优先级）
 
-**B1–B5、容量网格及 A1 低速率 SLO 补测已于 2026-10-09 完成，A2 默认模式 AWQ 对照已于 2026-10-10 完成**（vLLM 0.29.0 / 驱动 590.44.01）。结论见 `phase5/README.md`；A1 与 A2 的原始证据分别见 `phase5/results/capacity_slo_cliff_v029_20261009.md`、`phase5/results/weight_awq_graph_v029_20261010.md`。当前优先级最高的遗留项：
+**B1–B5、容量网格及 A1 低速率 SLO 补测已于 2026-10-09 完成，A2 默认模式 AWQ 对照和 A3 N-gram 容量边界补测已于 2026-10-10 完成**（vLLM 0.29.0 / 驱动 590.44.01）。结论见 `phase5/README.md`；A1/A2/A3 报告分别见 `phase5/results/capacity_slo_cliff_v029_20261009.md`、`phase5/results/weight_awq_graph_v029_20261010.md`、`phase5/results/spec_ngram_capacity_boundary_v029_20261010.md`。可选后续：
 
 **A1：定位 baseline 的 SLO 悬崖——已完成**
 
@@ -58,10 +59,10 @@
 - 同一容器、同一负载、默认执行模式下，AWQ 相对 BF16 的吞吐中位数 **+40.96%**，与旧 eager 配对的 −6.0% 方向相反；默认模式的两组日志均确认 torch.compile 与 CUDA Graph 捕获
 - 旧 eager 与新默认模式不是严格四格配对，不能拆分 CUDA Graph 和 torch.compile 各自的贡献；若要定位具体原因，应另立同节点执行模式实验
 
-**A3：ngram 的容量上限与调参**
+**A3：ngram 的开环 SLO 容量边界——已完成；调参另立实验**
 
-- 2.0 req/s 仍零排队，上限未测到；且服务端警告 `max_num_batched_tokens` 与投机槽位冲突，收益很可能被低估
-- 可补更高档位（2.5 / 3.0）与 `max_num_batched_tokens` 调大后的对照
+- 按预注册协议复测 2.0，并测试 2.4、2.8、2.6 req/s；2.4 是最高通过的已测档，2.6 开始逐请求 TTFT 超标，失效区间为 (2.4, 2.6] req/s。只代表本次 60 秒合成负载与示例 SLO，**不是物理最大吞吐或生产级稳定 QPS**
+- 服务端仍警告 `max_num_batched_tokens=4096` 可能限制投机性能；若继续探索，可另立单变量调参协议，对同一节点固定负载下的 4096 与更大 token budget 配对，并在边界附近复测，不与 A3 原始边界直接当严格配对
 
 **容量可信度补测**：R570/v0.18.0 的 N-gram 固定到达率探索只测到 2.0 req/s、每档 20 秒；这不是长期最大容量。若继续使用同一版本与硬件，应在临界负载附近细化档位、延长稳态窗口并按延迟 SLO 判断，独立记录环境，不与 v0.29.0 结果合并。
 
