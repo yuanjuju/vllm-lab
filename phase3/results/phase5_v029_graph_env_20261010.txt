@@ -1,0 +1,6 @@
+2026-10-10T01:44:01Z
+positive-cedar-1105-cd5d67b6-hczk2
+NVIDIA GeForce RTX 4090, GPU-5faea9f4-6d37-d847-e664-e9d2d4ab4fe3, 590.44.01, 49140 MiB, 0 MiB, 0 %
+torch 2.13.0+cu132 torch.cuda 13.2 vllm 0.29.0
+f9fdbcb91c23971c13ec5d5f2573d2349e8f61f2f049371ec699281748fdb1bc  models/Qwen3-8B/model.safetensors.index.json
+ad18bc45a440aea0a3298ddfd41d01c48eb9afbd94345f6176c4290e1b524175  models/Qwen3-8B-AWQ/model.safetensors.index.json
